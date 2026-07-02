@@ -1,16 +1,20 @@
 package com.example.kotlintut.viewmodel
 
 import android.app.Application
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.kotlintut.data.db.DatabaseHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /**
  * UI State for the Authentication process.
  */
+@Immutable
 data class AuthUiState(
     val loggedUser: String? = null,
     val isLoading: Boolean = false,
@@ -34,40 +38,44 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     fun login(identifier: String, pass: String) {
         _uiState.update { it.copy(isLoading = true, error = null) }
-        val username = dbHelper.loginAndGetUsername(identifier, pass)
-        if (username != null) {
-            prefs.edit().putString("LOGGED_USERNAME", username).apply()
-            _uiState.update { 
-                it.copy(
-                    loggedUser = username, 
-                    isLoading = false, 
-                    isLoginSuccessful = true 
-                ) 
+        viewModelScope.launch {
+            val username = dbHelper.loginAndGetUsername(identifier, pass)
+            if (username != null) {
+                prefs.edit().putString("LOGGED_USERNAME", username).apply()
+                _uiState.update { 
+                    it.copy(
+                        loggedUser = username, 
+                        isLoading = false, 
+                        isLoginSuccessful = true 
+                    ) 
+                }
+            } else {
+                _uiState.update { it.copy(isLoading = false, error = "Credenziali non valide") }
             }
-        } else {
-            _uiState.update { it.copy(isLoading = false, error = "Credenziali non valide") }
         }
     }
 
     fun register(user: String, email: String, pass: String, nome: String) {
         _uiState.update { it.copy(isLoading = true, error = null) }
-        if (dbHelper.userExists(user)) {
-            _uiState.update { it.copy(isLoading = false, error = "Username già esistente") }
-            return
-        }
-        
-        val id = dbHelper.registerUser(user, email, pass, nome)
-        if (id != -1L) {
-            prefs.edit().putString("LOGGED_USERNAME", user).apply()
-            _uiState.update { 
-                it.copy(
-                    loggedUser = user, 
-                    isLoading = false, 
-                    isLoginSuccessful = true 
-                ) 
+        viewModelScope.launch {
+            if (dbHelper.userExists(user)) {
+                _uiState.update { it.copy(isLoading = false, error = "Username già esistente") }
+                return@launch
             }
-        } else {
-            _uiState.update { it.copy(isLoading = false, error = "Errore durante la registrazione") }
+            
+            val id = dbHelper.registerUser(user, email, pass, nome)
+            if (id != -1L) {
+                prefs.edit().putString("LOGGED_USERNAME", user).apply()
+                _uiState.update { 
+                    it.copy(
+                        loggedUser = user, 
+                        isLoading = false, 
+                        isLoginSuccessful = true 
+                    ) 
+                }
+            } else {
+                _uiState.update { it.copy(isLoading = false, error = "Errore durante la registrazione") }
+            }
         }
     }
 

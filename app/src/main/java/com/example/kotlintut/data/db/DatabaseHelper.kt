@@ -396,7 +396,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         return orders
     }
 
-    private fun getOrderItems(orderId: Int): List<CartItem> {
+    fun getOrderItems(orderId: Int): List<CartItem> {
         val items = mutableListOf<CartItem>()
         val db = readableDatabase
         db.query(TABLE_ORDER_ITEMS, null, "$COLUMN_ITEM_ORDER_ID=?", arrayOf(orderId.toString()), null, null, null).use { cursor ->

@@ -1,115 +1,48 @@
 package com.example.kotlintut.viewmodel
 
 import android.app.Application
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
-import com.example.kotlintut.data.db.DatabaseHelper
-import com.example.kotlintut.data.model.CartItem
-import com.example.kotlintut.data.model.Product
-import com.example.kotlintut.data.model.Attribute
+import com.example.kotlintut.ui.theme.Locales
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+
+/**
+ * Global application state (Theme, Language, App-wide settings).
+ */
+data class AppUiState(
+    val isDarkMode: Boolean = false,
+    val language: String = "IT", // IT, EN
+    val isReady: Boolean = false
+) {
+    fun getString(key: String): String {
+        return Locales.getString(key, language)
+    }
+}
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
-    private val dbHelper = DatabaseHelper(application)
-    
-    // User Session
-    val loggedUser = mutableStateOf<String?>(null)
-    val displayName = mutableStateOf("Ospite")
+    private val prefs = application.getSharedPreferences("TOTEM_PREFS", 0)
 
-    // Cart State
-    val cartItems = mutableStateListOf<CartItem>()
-    
-    // UI State
-    val currentCategory = mutableStateOf("Panini")
+    private val _uiState = MutableStateFlow(AppUiState())
+    val uiState: StateFlow<AppUiState> = _uiState.asStateFlow()
 
     init {
-        val prefs = application.getSharedPreferences("TOTEM_PREFS", 0)
-        loggedUser.value = prefs.getString("LOGGED_USERNAME", null)
-        if (loggedUser.value != null) {
-            loadCart()
+        val dark = prefs.getBoolean("DARK_MODE", false)
+        val lang = prefs.getString("LANGUAGE", "IT") ?: "IT"
+        _uiState.update { it.copy(isDarkMode = dark, language = lang, isReady = true) }
+    }
+
+    fun toggleTheme() {
+        val newVal = !uiState.value.isDarkMode
+        prefs.edit().putBoolean("DARK_MODE", newVal).apply()
+        _uiState.update { it.copy(isDarkMode = newVal) }
+    }
+
+    fun setLanguage(lang: String) {
+        if (uiState.value.language != lang) {
+            prefs.edit().putString("LANGUAGE", lang).apply()
+            _uiState.update { it.copy(language = lang) }
         }
-    }
-
-    fun login(username: String) {
-        loggedUser.value = username
-        val prefs = getApplication<Application>().getSharedPreferences("TOTEM_PREFS", 0)
-        prefs.edit().putString("LOGGED_USERNAME", username).apply()
-        loadCart()
-    }
-
-    fun logout() {
-        loggedUser.value = null
-        displayName.value = "Ospite"
-        cartItems.clear()
-        val prefs = getApplication<Application>().getSharedPreferences("TOTEM_PREFS", 0)
-        prefs.edit().remove("LOGGED_USERNAME").apply()
-    }
-
-    fun addToCart(product: Product, quantity: Int, attributes: List<Attribute>) {
-        val existingItem = cartItems.find { it.product.name == product.name && it.selectedAttributes == attributes }
-        if (existingItem != null) {
-            // Re-create the item to trigger State update
-            val index = cartItems.indexOf(existingItem)
-            cartItems[index] = existingItem.copy(quantity = existingItem.quantity + quantity)
-        } else {
-            cartItems.add(CartItem(product, quantity, attributes))
-        }
-        saveCart()
-    }
-
-    fun removeFromCart(item: CartItem) {
-        cartItems.remove(item)
-        saveCart()
-    }
-
-    fun updateCartItemQuantity(item: CartItem, delta: Int) {
-        val index = cartItems.indexOf(item)
-        if (index != -1) {
-            val newQty = item.quantity + delta
-            if (newQty > 0) {
-                cartItems[index] = item.copy(quantity = newQty)
-            } else {
-                cartItems.removeAt(index)
-            }
-            saveCart()
-        }
-    }
-
-    fun saveCart() {
-        loggedUser.value?.let {
-            dbHelper.saveCart(it, cartItems)
-        }
-    }
-
-    private fun loadCart() {
-        loggedUser.value?.let {
-            cartItems.clear()
-            cartItems.addAll(dbHelper.loadCart(it))
-        }
-    }
-    
-    fun getCartTotal(): Double {
-        return cartItems.sumOf { it.getTotalPrice() }
-    }
-    
-    fun clearCart() {
-        cartItems.clear()
-        saveCart()
-    }
-    
-    fun confirmOrder() {
-        loggedUser.value?.let {
-            dbHelper.saveOrder(it, getCartTotal(), cartItems.toList())
-            clearCart()
-        }
-    }
-
-    // Helper for DB queries (categories/products)
-    fun getProductsByCategory(category: String): List<Product> {
-        return dbHelper.getProductsByCategory(category)
-    }
-
-    fun getAttributesByProduct(productName: String): List<Attribute> {
-        return dbHelper.getAttributesByProduct(productName)
     }
 }

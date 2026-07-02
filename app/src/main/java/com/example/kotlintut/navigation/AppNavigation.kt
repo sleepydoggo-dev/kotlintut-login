@@ -1,5 +1,7 @@
 package com.example.kotlintut.navigation
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
@@ -18,8 +20,7 @@ import androidx.navigation.navArgument
 import com.example.kotlintut.ui.components.DrawerHeader
 import com.example.kotlintut.ui.components.DrawerItem
 import com.example.kotlintut.ui.screens.*
-import com.example.kotlintut.viewmodel.AppViewModel
-import com.example.kotlintut.viewmodel.ProductViewModel
+import com.example.kotlintut.viewmodel.*
 import kotlinx.coroutines.launch
 
 sealed class Screen(val route: String) {
@@ -31,52 +32,91 @@ sealed class Screen(val route: String) {
         fun createRoute(category: String) = "products/$category"
     }
     object ProductDetail : Screen("product_detail")
+    object Favorites : Screen("favorites")
+    object Options : Screen("options")
     object Cart : Screen("cart")
+    object GuestContact : Screen("guest_contact")
     object Payment : Screen("payment")
-    object Success : Screen("success")
+    object OrderTracking : Screen("order_tracking")
     object OrderHistory : Screen("order_history")
 }
 
 @Composable
 fun AppNavigation(
     appViewModel: AppViewModel,
-    productViewModel: ProductViewModel = viewModel()
+    authViewModel: AuthViewModel = viewModel(),
+    productViewModel: ProductViewModel = viewModel(),
+    cartViewModel: CartViewModel = viewModel()
 ) {
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     
-    val productUiState by productViewModel.uiState.collectAsStateWithLifecycle()
+    val appState by appViewModel.uiState.collectAsStateWithLifecycle()
+    val authState by authViewModel.uiState.collectAsStateWithLifecycle()
+    val productState by productViewModel.uiState.collectAsStateWithLifecycle()
+    val cartState by cartViewModel.uiState.collectAsStateWithLifecycle()
+
+    // Sync state
+    LaunchedEffect(appState.language) {
+        productViewModel.updateLanguage(appState.language)
+    }
+
+    LaunchedEffect(authState.loggedUser) {
+        authState.loggedUser?.let { 
+            cartViewModel.loadCart(it)
+            productViewModel.loadFavorites()
+        } ?: run {
+            productViewModel.loadFavorites() // Refresh for guest (clear)
+        }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet {
-                DrawerHeader(username = appViewModel.loggedUser.value ?: "Ospite")
+                DrawerHeader(
+                    username = authState.loggedUser ?: appState.getString("guest"),
+                    welcomeText = appState.getString("welcome")
+                )
                 Spacer(Modifier.height(12.dp))
-                DrawerItem("Home", Icons.Default.Home, true) {
+                
+                DrawerItem(appState.getString("home"), Icons.Default.Home, false) {
                     scope.launch { drawerState.close() }
-                    navController.navigate(Screen.Categories.route)
+                    navController.navigate(Screen.Categories.route) {
+                        popUpTo(Screen.Categories.route) { inclusive = true }
+                    }
                 }
-                if (appViewModel.loggedUser.value == null) {
-                    DrawerItem("Login", Icons.Default.Login, false) {
+                
+                DrawerItem(appState.getString("favorites"), Icons.Default.Favorite, false) {
+                    scope.launch { drawerState.close() }
+                    navController.navigate(Screen.Favorites.route)
+                }
+                
+                DrawerItem(appState.getString("options"), Icons.Default.Settings, false) {
+                    scope.launch { drawerState.close() }
+                    navController.navigate(Screen.Options.route)
+                }
+
+                if (authState.loggedUser == null) {
+                    DrawerItem(appState.getString("login_register"), Icons.Default.Login, false) {
                         scope.launch { drawerState.close() }
                         navController.navigate(Screen.AuthGateway.route)
                     }
                 } else {
-                    DrawerItem("Carrello", Icons.Default.ShoppingCart, false) {
+                    DrawerItem(appState.getString("order_history"), Icons.Default.History, false) {
                         scope.launch { drawerState.close() }
-                        navController.navigate(Screen.Cart.route)
-                    }
-                    DrawerItem("Storico Ordini", Icons.Default.History, false) {
-                        scope.launch { drawerState.close() }
+                        cartViewModel.loadOrders(authState.loggedUser!!)
                         navController.navigate(Screen.OrderHistory.route)
                     }
                     Spacer(Modifier.weight(1f))
-                    DrawerItem("Logout", Icons.Default.Logout, false) {
+                    DrawerItem(appState.getString("logout"), Icons.Default.Logout, false) {
                         scope.launch { drawerState.close() }
-                        appViewModel.logout()
-                        navController.navigate(Screen.AuthGateway.route)
+                        authViewModel.logout()
+                        cartViewModel.clearCart(null)
+                        navController.navigate(Screen.Categories.route) {
+                            popUpTo(Screen.Categories.route) { inclusive = true }
+                        }
                     }
                 }
             }
@@ -84,112 +124,194 @@ fun AppNavigation(
     ) {
         NavHost(
             navController = navController,
-            startDestination = if (appViewModel.loggedUser.value != null) Screen.Categories.route else Screen.AuthGateway.route
+            startDestination = Screen.Categories.route,
+            enterTransition = { 
+                slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(400)) + fadeIn(animationSpec = tween(400)) 
+            },
+            exitTransition = { 
+                slideOutHorizontally(targetOffsetX = { -1000 }, animationSpec = tween(400)) + fadeOut(animationSpec = tween(400)) 
+            },
+            popEnterTransition = { 
+                slideInHorizontally(initialOffsetX = { -1000 }, animationSpec = tween(400)) + fadeIn(animationSpec = tween(400)) 
+            },
+            popExitTransition = { 
+                slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(400)) + fadeOut(animationSpec = tween(400)) 
+            }
         ) {
             composable(Screen.AuthGateway.route) {
                 AuthGatewayScreen(
+                    language = appState.language,
                     onLoginClick = { navController.navigate(Screen.Login.route) },
                     onRegisterClick = { navController.navigate(Screen.Register.route) },
-                    onCancelClick = { navController.navigate(Screen.Categories.route) }
+                    onCancelClick = { navController.popBackStack() }
                 )
             }
             composable(Screen.Login.route) {
                 LoginScreen(
-                    onLoginSuccess = { username ->
-                        appViewModel.login(username)
+                    authState = authState,
+                    language = appState.language,
+                    onLogin = { id, pass -> authViewModel.login(id, pass) },
+                    onBack = { navController.popBackStack() }
+                )
+                if (authState.isLoginSuccessful) {
+                    LaunchedEffect(Unit) {
                         navController.navigate(Screen.Categories.route) {
                             popUpTo(Screen.AuthGateway.route) { inclusive = true }
                         }
-                    },
-                    onBack = { navController.popBackStack() }
-                )
+                    }
+                }
             }
             composable(Screen.Register.route) {
                 RegisterScreen(
-                    onRegisterSuccess = { username ->
-                        appViewModel.login(username)
+                    authState = authState,
+                    language = appState.language,
+                    onRegister = { u, e, p, n -> authViewModel.register(u, e, p, n) },
+                    onBack = { navController.popBackStack() }
+                )
+                if (authState.isLoginSuccessful) {
+                    LaunchedEffect(Unit) {
                         navController.navigate(Screen.Categories.route) {
                             popUpTo(Screen.AuthGateway.route) { inclusive = true }
                         }
-                    },
-                    onBack = { navController.popBackStack() }
-                )
+                    }
+                }
             }
             composable(Screen.Categories.route) {
                 CategoriesScreen(
-                    categories = productUiState.categories,
+                    title = appState.getString("what_to_order"),
+                    categories = productState.categories,
+                    cartCount = cartState.itemCount,
                     onCategoryClick = { category ->
                         productViewModel.selectCategory(category)
                         navController.navigate(Screen.Products.createRoute(category))
                     },
-                    onMenuClick = { scope.launch { drawerState.open() } }
+                    onMenuClick = { scope.launch { drawerState.open() } },
+                    onCartClick = { navController.navigate(Screen.Cart.route) },
+                    translate = { appState.getString(it) }
                 )
             }
             composable(
                 route = Screen.Products.route,
                 arguments = listOf(navArgument("category") { type = NavType.StringType })
-            ) {
+            ) { backStackEntry ->
+                val category = backStackEntry.arguments?.getString("category") ?: ""
                 ProductsScreen(
-                    category = productUiState.selectedCategory ?: "Panini",
-                    products = productUiState.products,
+                    category = category,
+                    categoryLabel = appState.getString(category),
+                    products = productState.filteredProducts,
+                    searchQuery = productState.searchQuery,
+                    cartCount = cartState.itemCount,
+                    searchLabel = appState.getString("search_products"),
+                    noProductsLabel = appState.getString("no_products"),
+                    onSearchQueryChange = { productViewModel.onSearchQueryChange(it) },
                     onProductClick = { product ->
                         productViewModel.selectProduct(product)
                         navController.navigate(Screen.ProductDetail.route)
                     },
-                    onBack = { 
-                        productViewModel.clearCategorySelection()
-                        navController.popBackStack() 
-                    }
+                    onCartClick = { navController.navigate(Screen.Cart.route) },
+                    onBack = { navController.popBackStack() }
                 )
             }
             composable(Screen.ProductDetail.route) {
-                productUiState.selectedProduct?.let { product ->
+                productState.selectedProduct?.let { product ->
                     ProductDetailScreen(
                         product = product,
-                        attributes = productUiState.productAttributes,
-                        isFavorite = false,
-                        onFavoriteToggle = { /* TODO */ },
+                        attributes = productState.productAttributes,
+                        isFavorite = productViewModel.isFavorite(product.name),
+                        cartCount = cartState.itemCount,
+                        detailsLabel = appState.getString("details"),
+                        customizeLabel = appState.getString("customize_order"),
+                        addLabel = appState.getString("add_to_cart"),
+                        onFavoriteToggle = { productViewModel.toggleFavorite(product) },
                         onAddToCart = { qty, attrs ->
-                            appViewModel.addToCart(product, qty, attrs)
+                            cartViewModel.addToCart(authState.loggedUser, product, qty, attrs)
                             navController.popBackStack()
                         },
-                        onBack = { 
-                            productViewModel.clearProductSelection()
-                            navController.popBackStack() 
-                        }
+                        onCartClick = { navController.navigate(Screen.Cart.route) },
+                        onBack = { navController.popBackStack() }
                     )
                 }
             }
+            composable(Screen.Favorites.route) {
+                FavoritesScreen(
+                    title = appState.getString("my_favorites"),
+                    noFavoritesLabel = appState.getString("no_favorites"),
+                    favorites = productState.favorites,
+                    cartCount = cartState.itemCount,
+                    onProductClick = { product ->
+                        productViewModel.selectProduct(product)
+                        navController.navigate(Screen.ProductDetail.route)
+                    },
+                    onCartClick = { navController.navigate(Screen.Cart.route) },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.Options.route) {
+                OptionsScreen(
+                    title = appState.getString("options"),
+                    aspectLabel = appState.getString("aspect"),
+                    darkModeLabel = appState.getString("dark_mode"),
+                    darkModeDesc = appState.getString("toggle_dark_mode"),
+                    languageLabel = appState.getString("language"),
+                    appLanguageLabel = appState.getString("app_language"),
+                    currentLangLabel = appState.getString("current_lang"),
+                    isDarkMode = appState.isDarkMode,
+                    language = appState.language,
+                    cartCount = cartState.itemCount,
+                    onToggleTheme = { appViewModel.toggleTheme() },
+                    onLanguageChange = { appViewModel.setLanguage(it) },
+                    onCartClick = { navController.navigate(Screen.Cart.route) },
+                    onBack = { navController.popBackStack() }
+                )
+            }
             composable(Screen.Cart.route) {
                 CartScreen(
-                    items = appViewModel.cartItems,
-                    total = appViewModel.getCartTotal(),
-                    onQuantityChange = { item, delta -> appViewModel.updateCartItemQuantity(item, delta) },
-                    onRemoveItem = { item -> appViewModel.removeFromCart(item) },
+                    items = cartState.items,
+                    total = cartState.total,
+                    language = appState.language,
+                    onQuantityChange = { item, delta -> cartViewModel.updateQuantity(authState.loggedUser, item, delta) },
+                    onRemoveItem = { item -> cartViewModel.removeItem(authState.loggedUser, item) },
                     onCheckoutClick = {
-                        if (appViewModel.loggedUser.value != null) {
+                        if (authState.loggedUser != null) {
                             navController.navigate(Screen.Payment.route)
                         } else {
-                            navController.navigate(Screen.AuthGateway.route)
+                            navController.navigate(Screen.GuestContact.route)
                         }
                     },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.GuestContact.route) {
+                GuestContactScreen(
+                    name = cartState.guestName,
+                    email = cartState.guestEmail,
+                    language = appState.language,
+                    onNameChange = { cartViewModel.updateGuestInfo(it, cartState.guestEmail) },
+                    onEmailChange = { cartViewModel.updateGuestInfo(cartState.guestName, it) },
+                    onContinue = { navController.navigate(Screen.Payment.route) },
                     onBack = { navController.popBackStack() }
                 )
             }
             composable(Screen.Payment.route) {
                 PaymentScreen(
-                    total = appViewModel.getCartTotal(),
+                    total = cartState.total,
+                    cardNumber = cartState.cardNumber,
+                    cardExpiry = cartState.cardExpiry,
+                    cardCvv = cartState.cardCvv,
+                    language = appState.language,
+                    onCardNumberChange = { cartViewModel.updatePaymentInfo(it, cartState.cardExpiry, cartState.cardCvv) },
+                    onCardExpiryChange = { cartViewModel.updatePaymentInfo(cartState.cardNumber, it, cartState.cardCvv) },
+                    onCardCvvChange = { cartViewModel.updatePaymentInfo(cartState.cardNumber, cartState.cardExpiry, it) },
                     onConfirm = {
-                        appViewModel.confirmOrder()
-                        navController.navigate(Screen.Success.route) {
-                            popUpTo(Screen.Categories.route) { inclusive = false }
-                        }
+                        cartViewModel.confirmOrder(authState.loggedUser ?: "Guest")
+                        navController.navigate(Screen.OrderTracking.route)
                     },
                     onBack = { navController.popBackStack() }
                 )
             }
-            composable(Screen.Success.route) {
-                SuccessScreen(
+            composable(Screen.OrderTracking.route) {
+                OrderTrackingScreen(
+                    language = appState.language,
                     onFinish = {
                         navController.navigate(Screen.Categories.route) {
                             popUpTo(Screen.Categories.route) { inclusive = true }
@@ -199,7 +321,12 @@ fun AppNavigation(
             }
             composable(Screen.OrderHistory.route) {
                 OrderHistoryScreen(
-                    orders = emptyList(),
+                    orders = cartState.orders,
+                    language = appState.language,
+                    onReorder = { items ->
+                        cartViewModel.reorder(authState.loggedUser, items)
+                        navController.navigate(Screen.Cart.route)
+                    },
                     onBack = { navController.popBackStack() }
                 )
             }

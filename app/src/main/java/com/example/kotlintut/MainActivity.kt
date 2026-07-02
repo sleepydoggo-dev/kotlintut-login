@@ -6,7 +6,9 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kotlintut.navigation.AppNavigation
 import com.example.kotlintut.ui.theme.RistoranteTotemTheme
@@ -16,13 +18,15 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            RistoranteTotemTheme {
-                val viewModel: AppViewModel = viewModel()
+            val appViewModel: AppViewModel = viewModel()
+            val appState by appViewModel.uiState.collectAsStateWithLifecycle()
+            
+            RistoranteTotemTheme(darkTheme = appState.isDarkMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AppNavigation(viewModel)
+                    AppNavigation(appViewModel)
                 }
             }
         }

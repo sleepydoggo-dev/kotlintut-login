@@ -1,23 +1,39 @@
 package com.example.kotlintut.ui.screens
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.kotlintut.data.model.Attribute
 import com.example.kotlintut.data.model.Product
 import com.example.kotlintut.ui.components.TotemTopBar
@@ -27,22 +43,45 @@ import com.example.kotlintut.ui.components.TotemTopBar
  */
 @Composable
 fun CategoriesScreen(
+    title: String,
     categories: List<String>,
+    cartCount: Int,
     onCategoryClick: (String) -> Unit,
-    onMenuClick: () -> Unit
+    onMenuClick: () -> Unit,
+    onCartClick: () -> Unit,
+    translate: (String) -> String
 ) {
     Scaffold(
-        topBar = { TotemTopBar(onMenuClick = onMenuClick) }
+        modifier = Modifier.pointerInput(Unit) {},
+        topBar = { 
+            TotemTopBar(
+                onMenuClick = onMenuClick,
+                onCartClick = onCartClick,
+                cartItemCount = cartCount
+            ) 
+        }
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            ScreenTitle(text = "Cosa vuoi ordinare?")
+            ScreenTitle(text = title)
             
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxSize().padding(8.dp)
+                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+                contentPadding = PaddingValues(bottom = 16.dp)
             ) {
-                items(categories) { category ->
-                    CategoryCard(category = category) { onCategoryClick(category) }
+                itemsIndexed(categories, key = { _, cat -> cat }) { index, category ->
+                    val label = remember(category, translate) { translate(category) }
+                    
+                    var visible by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) { visible = true }
+                    
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(animationSpec = tween(300, delayMillis = index * 50)) +
+                                scaleIn(initialScale = 0.8f, animationSpec = tween(300, delayMillis = index * 50))
+                    ) {
+                        CategoryCard(category = category, label = label) { onCategoryClick(category) }
+                    }
                 }
             }
         }
@@ -55,29 +94,69 @@ fun CategoriesScreen(
 @Composable
 fun ProductsScreen(
     category: String,
+    categoryLabel: String,
     products: List<Product>,
+    searchQuery: String,
+    cartCount: Int,
+    searchLabel: String,
+    noProductsLabel: String,
+    onSearchQueryChange: (String) -> Unit,
     onProductClick: (Product) -> Unit,
+    onCartClick: () -> Unit,
     onBack: () -> Unit
 ) {
     Scaffold(
+        modifier = Modifier.pointerInput(Unit) {},
         topBar = { 
             TotemTopBar(
-                title = category, 
+                title = categoryLabel, 
                 showMenu = false, 
                 showBack = true, 
-                onBackClick = onBack
+                onBackClick = onBack,
+                onCartClick = onCartClick,
+                cartItemCount = cartCount
             ) 
         }
     ) { padding ->
-        if (products.isEmpty()) {
-            EmptyState(message = "Nessun prodotto trovato in questa categoria.")
-        } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxSize().padding(padding).padding(8.dp)
-            ) {
-                items(products) { product ->
-                    ProductCard(product = product) { onProductClick(product) }
+        Column(modifier = Modifier.padding(padding)) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                placeholder = { Text(searchLabel) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                shape = MaterialTheme.shapes.medium,
+                singleLine = true
+            )
+            
+            AnimatedContent(
+                targetState = products,
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(300)).togetherWith(fadeOut(animationSpec = tween(300)))
+                },
+                label = "ProductsCrossfade"
+            ) { targetProducts ->
+                if (targetProducts.isEmpty()) {
+                    EmptyState(message = noProductsLabel)
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+                        contentPadding = PaddingValues(bottom = 16.dp)
+                    ) {
+                        itemsIndexed(targetProducts, key = { _, prod -> prod.name }) { index, product ->
+                            var visible by remember(product.name) { mutableStateOf(false) }
+                            LaunchedEffect(product.name) { visible = true }
+
+                            AnimatedVisibility(
+                                visible = visible,
+                                enter = fadeIn(animationSpec = tween(300, delayMillis = index * 30)) +
+                                        slideInVertically(initialOffsetY = { 50 }, animationSpec = tween(300, delayMillis = index * 30))
+                            ) {
+                                ProductCard(product = product) { onProductClick(product) }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -92,20 +171,28 @@ fun ProductDetailScreen(
     product: Product,
     attributes: List<Attribute>,
     isFavorite: Boolean,
+    cartCount: Int,
+    detailsLabel: String,
+    customizeLabel: String,
+    addLabel: String,
     onFavoriteToggle: () -> Unit,
     onAddToCart: (Int, List<Attribute>) -> Unit,
+    onCartClick: () -> Unit,
     onBack: () -> Unit
 ) {
     var quantity by remember { mutableIntStateOf(1) }
     val selectedAttributes = remember { mutableStateListOf<Attribute>() }
 
     Scaffold(
+        modifier = Modifier.pointerInput(Unit) {},
         topBar = {
             TotemTopBar(
-                title = "Dettagli",
+                title = detailsLabel,
                 showMenu = false,
                 showBack = true,
-                onBackClick = onBack
+                onBackClick = onBack,
+                onCartClick = onCartClick,
+                cartItemCount = cartCount
             )
         },
         bottomBar = {
@@ -113,6 +200,7 @@ fun ProductDetailScreen(
                 basePrice = product.price,
                 quantity = quantity,
                 selectedAttributes = selectedAttributes,
+                buttonLabel = addLabel,
                 onQuantityIncrease = { quantity++ },
                 onQuantityDecrease = { if (quantity > 1) quantity-- },
                 onAddToCart = { onAddToCart(quantity, selectedAttributes.toList()) }
@@ -124,9 +212,10 @@ fun ProductDetailScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(16.dp)
+                .verticalScroll(rememberScrollState())
         ) {
             ProductHeaderImage(
-                productName = product.name,
+                product = product,
                 isFavorite = isFavorite,
                 onFavoriteToggle = onFavoriteToggle
             )
@@ -141,6 +230,7 @@ fun ProductDetailScreen(
                 AttributeList(
                     attributes = attributes,
                     selectedAttributes = selectedAttributes,
+                    customizeLabel = customizeLabel,
                     onAttributeToggle = { attr ->
                         if (selectedAttributes.contains(attr)) selectedAttributes.remove(attr)
                         else selectedAttributes.add(attr)
@@ -165,9 +255,25 @@ private fun ScreenTitle(text: String) {
 }
 
 @Composable
-private fun CategoryCard(category: String, onClick: () -> Unit) {
+private fun CategoryCard(category: String, label: String, onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy),
+        label = "PressScale"
+    )
+
     Card(
-        modifier = Modifier.padding(8.dp).aspectRatio(1f).clickable { onClick() },
+        modifier = Modifier
+            .padding(8.dp)
+            .aspectRatio(1f)
+            .scale(scale)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
+                onClick = onClick
+            ),
         shape = MaterialTheme.shapes.medium
     ) {
         Column(
@@ -184,25 +290,47 @@ private fun CategoryCard(category: String, onClick: () -> Unit) {
                 Text(category.take(1), fontSize = 48.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             }
             Text(
-                text = category,
+                text = label,
                 modifier = Modifier.padding(12.dp),
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
             )
         }
     }
 }
 
 @Composable
-private fun ProductCard(product: Product, onClick: () -> Unit) {
+fun ProductCard(product: Product, onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy),
+        label = "PressScale"
+    )
+
     Card(
-        modifier = Modifier.padding(8.dp).aspectRatio(0.8f).clickable { onClick() },
+        modifier = Modifier
+            .padding(8.dp)
+            .aspectRatio(0.8f)
+            .scale(scale)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
+                onClick = onClick
+            ),
         shape = MaterialTheme.shapes.medium
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxSize()
         ) {
+            val context = LocalContext.current
+            val imageResId = remember(product.imageKey) {
+                context.resources.getIdentifier(product.imageKey, "drawable", context.packageName)
+            }
+            
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -210,7 +338,20 @@ private fun ProductCard(product: Product, onClick: () -> Unit) {
                     .background(MaterialTheme.colorScheme.secondaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Text(product.name.take(1), fontSize = 40.sp, color = MaterialTheme.colorScheme.secondary)
+                if (imageResId != 0) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(imageResId)
+                            .crossfade(true)
+                            .size(300, 300) // Optimization: Downsample large images
+                            .build(),
+                        contentDescription = product.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Text(product.name.take(1), fontSize = 40.sp, color = MaterialTheme.colorScheme.secondary)
+                }
             }
             Text(
                 text = product.name,
@@ -218,7 +359,7 @@ private fun ProductCard(product: Product, onClick: () -> Unit) {
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
-                maxLines = 2
+                maxLines = 1
             )
             Text(
                 text = "€ ${String.format("%.2f", product.price)}",
@@ -236,6 +377,7 @@ private fun ProductPurchaseBar(
     basePrice: Double,
     quantity: Int,
     selectedAttributes: List<Attribute>,
+    buttonLabel: String,
     onQuantityIncrease: () -> Unit,
     onQuantityDecrease: () -> Unit,
     onAddToCart: () -> Unit
@@ -258,7 +400,7 @@ private fun ProductPurchaseBar(
                 modifier = Modifier.height(55.dp)
             ) {
                 val totalPrice = (basePrice + selectedAttributes.sumOf { it.extraPrice }) * quantity
-                Text("AGGIUNGI  € ${String.format("%.2f", totalPrice)}")
+                Text("$buttonLabel  € ${String.format("%.2f", totalPrice)}")
             }
         }
     }
@@ -266,10 +408,15 @@ private fun ProductPurchaseBar(
 
 @Composable
 private fun ProductHeaderImage(
-    productName: String,
+    product: Product,
     isFavorite: Boolean,
     onFavoriteToggle: () -> Unit
 ) {
+    val context = LocalContext.current
+    val imageResId = remember(product.imageKey) {
+        context.resources.getIdentifier(product.imageKey, "drawable", context.packageName)
+    }
+
     Box(modifier = Modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
@@ -278,11 +425,23 @@ private fun ProductHeaderImage(
                 .background(MaterialTheme.colorScheme.secondaryContainer),
             contentAlignment = Alignment.Center
         ) {
-            Text(productName.take(1), fontSize = 80.sp, color = MaterialTheme.colorScheme.secondary)
+            if (imageResId != 0) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(imageResId)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = product.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Text(product.name.take(1), fontSize = 80.sp, color = MaterialTheme.colorScheme.secondary)
+            }
         }
         IconButton(
             onClick = onFavoriteToggle,
-            modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
+            modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).background(Color.White.copy(alpha = 0.5f), MaterialTheme.shapes.small)
         ) {
             Icon(
                 imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
@@ -305,10 +464,11 @@ private fun ProductInfo(name: String, description: String) {
 private fun AttributeList(
     attributes: List<Attribute>,
     selectedAttributes: List<Attribute>,
+    customizeLabel: String,
     onAttributeToggle: (Attribute) -> Unit
 ) {
     Column {
-        Text("Personalizza il tuo ordine", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text(customizeLabel, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(8.dp))
         attributes.forEach { attr ->
             Row(

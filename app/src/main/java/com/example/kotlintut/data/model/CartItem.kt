@@ -1,12 +1,15 @@
 package com.example.kotlintut.data.model
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 data class CartItem(
     val product: Product,
-    var quantity: Int,
+    val quantity: Int,
     val selectedAttributes: List<Attribute> = emptyList()
 ) {
     fun getTotalPrice(): Double {
-        val attributesPrice = selectedAttributes.sumOf { it.extraPrice }
-        return (product.price + attributesPrice) * quantity
+        val attrExtra = selectedAttributes.sumOf { it.extraPrice }
+        return (product.price + attrExtra) * quantity
     }
 }
