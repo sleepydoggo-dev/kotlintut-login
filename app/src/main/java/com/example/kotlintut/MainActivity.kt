@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
             val appViewModel: AppViewModel = viewModel()
             val appState by appViewModel.uiState.collectAsStateWithLifecycle()
             
-            RistoranteTotemTheme(darkTheme = appState.isDarkMode) {
+            RistoranteTotemTheme(userPreferenceDark = appState.isDarkMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

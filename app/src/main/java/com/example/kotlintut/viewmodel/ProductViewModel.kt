@@ -48,9 +48,14 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
     fun updateLanguage(lang: String) {
         if (_uiState.value.language != lang) {
             _uiState.update { it.copy(language = lang) }
-            // Refresh products and favorites if a category or products are loaded
-            _uiState.value.selectedCategory?.let { selectCategory(it) }
-            loadFavorites()
+            // Translate current products and favorites
+            _uiState.update { state ->
+                state.copy(
+                    products = state.products.map { translateProduct(it, lang) },
+                    favorites = state.favorites.map { translateProduct(it, lang) },
+                    selectedProduct = state.selectedProduct?.let { translateProduct(it, lang) }
+                )
+            }
         }
     }
 

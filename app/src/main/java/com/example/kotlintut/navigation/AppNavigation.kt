@@ -2,6 +2,7 @@ package com.example.kotlintut.navigation
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
@@ -88,14 +89,24 @@ fun AppNavigation(
                     }
                 }
                 
-                DrawerItem(appState.getString("favorites"), Icons.Default.Favorite, false) {
-                    scope.launch { drawerState.close() }
-                    navController.navigate(Screen.Favorites.route)
+                if (authState.loggedUser != null) {
+                    DrawerItem(appState.getString("favorites"), Icons.Default.Favorite, false) {
+                        scope.launch { drawerState.close() }
+                        navController.navigate(Screen.Favorites.route)
+                    }
                 }
-                
+
                 DrawerItem(appState.getString("options"), Icons.Default.Settings, false) {
                     scope.launch { drawerState.close() }
                     navController.navigate(Screen.Options.route)
+                }
+
+                if (authState.loggedUser != null) {
+                    DrawerItem(appState.getString("order_history"), Icons.Default.History, false) {
+                        scope.launch { drawerState.close() }
+                        cartViewModel.loadOrders(authState.loggedUser!!)
+                        navController.navigate(Screen.OrderHistory.route)
+                    }
                 }
 
                 if (authState.loggedUser == null) {
@@ -104,11 +115,6 @@ fun AppNavigation(
                         navController.navigate(Screen.AuthGateway.route)
                     }
                 } else {
-                    DrawerItem(appState.getString("order_history"), Icons.Default.History, false) {
-                        scope.launch { drawerState.close() }
-                        cartViewModel.loadOrders(authState.loggedUser!!)
-                        navController.navigate(Screen.OrderHistory.route)
-                    }
                     Spacer(Modifier.weight(1f))
                     DrawerItem(appState.getString("logout"), Icons.Default.Logout, false) {
                         scope.launch { drawerState.close() }
@@ -151,7 +157,10 @@ fun AppNavigation(
                     authState = authState,
                     language = appState.language,
                     onLogin = { id, pass -> authViewModel.login(id, pass) },
-                    onBack = { navController.popBackStack() }
+                    onBack = { 
+                        authViewModel.clearError()
+                        navController.popBackStack() 
+                    }
                 )
                 if (authState.isLoginSuccessful) {
                     LaunchedEffect(Unit) {
@@ -166,7 +175,10 @@ fun AppNavigation(
                     authState = authState,
                     language = appState.language,
                     onRegister = { u, e, p, n -> authViewModel.register(u, e, p, n) },
-                    onBack = { navController.popBackStack() }
+                    onBack = { 
+                        authViewModel.clearError()
+                        navController.popBackStack() 
+                    }
                 )
                 if (authState.isLoginSuccessful) {
                     LaunchedEffect(Unit) {
@@ -225,7 +237,6 @@ fun AppNavigation(
                         onFavoriteToggle = { productViewModel.toggleFavorite(product) },
                         onAddToCart = { qty, attrs ->
                             cartViewModel.addToCart(authState.loggedUser, product, qty, attrs)
-                            navController.popBackStack()
                         },
                         onCartClick = { navController.navigate(Screen.Cart.route) },
                         onBack = { navController.popBackStack() }
@@ -247,6 +258,7 @@ fun AppNavigation(
                 )
             }
             composable(Screen.Options.route) {
+                val isSystemDark = isSystemInDarkTheme()
                 OptionsScreen(
                     title = appState.getString("options"),
                     aspectLabel = appState.getString("aspect"),
@@ -255,10 +267,10 @@ fun AppNavigation(
                     languageLabel = appState.getString("language"),
                     appLanguageLabel = appState.getString("app_language"),
                     currentLangLabel = appState.getString("current_lang"),
-                    isDarkMode = appState.isDarkMode,
+                    isDarkMode = appState.isDarkMode ?: isSystemDark,
                     language = appState.language,
                     cartCount = cartState.itemCount,
-                    onToggleTheme = { appViewModel.toggleTheme() },
+                    onToggleTheme = { appViewModel.toggleTheme(isSystemDark) },
                     onLanguageChange = { appViewModel.setLanguage(it) },
                     onCartClick = { navController.navigate(Screen.Cart.route) },
                     onBack = { navController.popBackStack() }

@@ -237,6 +237,8 @@ fun ProductDetailScreen(
                     }
                 )
             }
+            
+            Spacer(modifier = Modifier.height(80.dp)) // Padding for bottom bar
         }
     }
 }

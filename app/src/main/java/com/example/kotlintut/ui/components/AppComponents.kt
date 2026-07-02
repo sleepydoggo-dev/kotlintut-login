@@ -26,7 +26,9 @@ fun TotemTopBar(
     cartItemCount: Int = 0,
     onMenuClick: () -> Unit = {},
     onBackClick: () -> Unit = {},
-    onCartClick: () -> Unit = {}
+    onCartClick: () -> Unit = {},
+    showCart: Boolean = true,
+    actions: @Composable RowScope.() -> Unit = {}
 ) {
     // Spring Animation for Cart Icon
     var scaleTrigger by remember { mutableStateOf(1f) }
@@ -59,19 +61,22 @@ fun TotemTopBar(
             }
         },
         actions = {
-            BadgedBox(
-                badge = {
-                    if (cartItemCount > 0) {
-                        Badge { Text(cartItemCount.toString()) }
-                    }
-                },
-                modifier = Modifier.padding(end = 8.dp)
-            ) {
-                IconButton(
-                    onClick = onCartClick,
-                    modifier = Modifier.scale(scale)
+            actions()
+            if (showCart) {
+                BadgedBox(
+                    badge = {
+                        if (cartItemCount > 0) {
+                            Badge { Text(cartItemCount.toString()) }
+                        }
+                    },
+                    modifier = Modifier.padding(end = 8.dp)
                 ) {
-                    Icon(Icons.Default.ShoppingCart, contentDescription = "Cart")
+                    IconButton(
+                        onClick = onCartClick,
+                        modifier = Modifier.scale(scale)
+                    ) {
+                        Icon(Icons.Default.ShoppingCart, contentDescription = "Cart")
+                    }
                 }
             }
         },

@@ -225,18 +225,10 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         val db = readableDatabase
         db.query(TABLE_PRODUCTS, null, "$COLUMN_PROD_CAT=?", arrayOf(category), null, null, null).use { cursor ->
             if (cursor.moveToFirst()) {
-                val res = context.resources
-                val pkg = context.packageName
                 do {
                     val nomeKey = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_NAME))
                     val prezzo = cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_PROD_PRICE))
                     val descKey = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_DESC))
-
-                    val resNomeId = res.getIdentifier(nomeKey, "string", pkg)
-                    val resDescId = res.getIdentifier(descKey, "string", pkg)
-
-                    val nomeTradotto = if (resNomeId != 0) context.getString(resNomeId) else nomeKey
-                    val descTradotta = if (resDescId != 0) context.getString(resDescId) else descKey
 
                     var imgKey = nomeKey.replace("prod_", "")
                     imgKey = when (imgKey) {
@@ -254,7 +246,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                         else -> imgKey
                     }
 
-                    list.add(Product(nomeTradotto, prezzo, descTradotta, imgKey, category))
+                    list.add(Product(nomeKey, prezzo, descKey, imgKey, category))
                 } while (cursor.moveToNext())
             }
         }

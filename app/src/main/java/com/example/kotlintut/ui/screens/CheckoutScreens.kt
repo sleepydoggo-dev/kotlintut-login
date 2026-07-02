@@ -81,25 +81,29 @@ fun CartScreen(
                         }
                     )
                     
-                    SwipeToDismissBox(
-                        state = dismissState,
-                        backgroundContent = {
-                            val color = when (dismissState.dismissDirection) {
-                                SwipeToDismissBoxValue.EndToStart -> Color.Red.copy(alpha = 0.8f)
-                                else -> Color.Transparent
+                    val isDismissed = dismissState.currentValue != SwipeToDismissBoxValue.Settled
+
+                    if (!isDismissed) {
+                        SwipeToDismissBox(
+                            state = dismissState,
+                            backgroundContent = {
+                                val color = when (dismissState.dismissDirection) {
+                                    SwipeToDismissBoxValue.EndToStart -> Color.Red.copy(alpha = 0.8f)
+                                    else -> Color.Transparent
+                                }
+                                Box(
+                                    modifier = Modifier.fillMaxSize().padding(vertical = 8.dp).background(color, MaterialTheme.shapes.medium),
+                                    contentAlignment = Alignment.CenterEnd
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = null, tint = Color.White, modifier = Modifier.padding(end = 16.dp))
+                                }
+                            },
+                            enableDismissFromStartToEnd = false,
+                            content = {
+                                CartItemRow(item = item, onQuantityChange = onQuantityChange)
                             }
-                            Box(
-                                modifier = Modifier.fillMaxSize().padding(vertical = 8.dp).background(color, MaterialTheme.shapes.medium),
-                                contentAlignment = Alignment.CenterEnd
-                            ) {
-                                Icon(Icons.Default.Delete, contentDescription = null, tint = Color.White, modifier = Modifier.padding(end = 16.dp))
-                            }
-                        },
-                        enableDismissFromStartToEnd = false,
-                        content = {
-                            CartItemRow(item = item, onQuantityChange = onQuantityChange)
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }
@@ -205,6 +209,10 @@ fun PaymentScreen(
     val translate = remember(language) { { key: String -> Locales.getString(key, language) } }
     var selectedMethod by remember { mutableStateOf("Carta") }
 
+    val isExpiryValid = cardExpiry.length == 5 && cardExpiry.contains("/")
+    val isCvvValid = cardCvv.length == 3
+    val isCardValid = cardNumber.length >= 16 && isExpiryValid && isCvvValid
+
     Scaffold(
         modifier = Modifier.pointerInput(Unit) {},
         topBar = { TotemTopBar(title = translate("payment"), showMenu = false, showBack = true, onBackClick = onBack) }
@@ -227,7 +235,7 @@ fun PaymentScreen(
                 Column(modifier = Modifier.padding(top = 16.dp)) {
                     OutlinedTextField(
                         value = cardNumber,
-                        onValueChange = onCardNumberChange,
+                        onValueChange = { if (it.length <= 16 && it.all { c -> c.isDigit() }) onCardNumberChange(it) },
                         label = { Text(translate("card_number")) },
                         modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -236,16 +244,27 @@ fun PaymentScreen(
                     Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                         OutlinedTextField(
                             value = cardExpiry,
-                            onValueChange = onCardExpiryChange,
+                            onValueChange = { input ->
+                                val clean = input.replace("/", "")
+                                if (clean.length <= 4 && clean.all { it.isDigit() }) {
+                                    val formatted = if (clean.length >= 2) {
+                                        clean.substring(0, 2) + "/" + clean.substring(2)
+                                    } else {
+                                        clean
+                                    }
+                                    onCardExpiryChange(formatted)
+                                }
+                            },
                             label = { Text(translate("expiry")) },
                             modifier = Modifier.weight(1f),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true
+                            singleLine = true,
+                            placeholder = { Text("MM/YY") }
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         OutlinedTextField(
                             value = cardCvv,
-                            onValueChange = onCardCvvChange,
+                            onValueChange = { if (it.length <= 3 && it.all { c -> c.isDigit() }) onCardCvvChange(it) },
                             label = { Text(translate("cvv")) },
                             modifier = Modifier.weight(0.5f),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -262,7 +281,7 @@ fun PaymentScreen(
             Button(
                 onClick = onConfirm,
                 modifier = Modifier.fillMaxWidth().height(60.dp),
-                enabled = if (selectedMethod == "Carta") cardNumber.length >= 16 else true
+                enabled = if (selectedMethod == "Carta") isCardValid else true
             ) {
                 Text(translate("confirm_order"), fontSize = 18.sp)
             }
@@ -337,10 +356,37 @@ fun OrderHistoryScreen(
     onBack: () -> Unit
 ) {
     val translate = remember(language) { { key: String -> Locales.getString(key, language) } }
+    var showInfoDialog by remember { mutableStateOf(false) }
+
+    if (showInfoDialog) {
+        AlertDialog(
+            onDismissRequest = { showInfoDialog = false },
+            title = { Text(translate("details")) },
+            text = { Text(translate("order_history_info")) },
+            confirmButton = {
+                TextButton(onClick = { showInfoDialog = false }) {
+                    Text(translate("ok"))
+                }
+            }
+        )
+    }
 
     Scaffold(
         modifier = Modifier.pointerInput(Unit) {},
-        topBar = { TotemTopBar(title = translate("order_history"), showMenu = false, showBack = true, onBackClick = onBack) }
+        topBar = { 
+            TotemTopBar(
+                title = translate("order_history"), 
+                showMenu = false, 
+                showBack = true, 
+                onBackClick = onBack,
+                showCart = false,
+                actions = {
+                    IconButton(onClick = { showInfoDialog = true }) {
+                        Icon(Icons.Default.Info, contentDescription = "Info")
+                    }
+                }
+            ) 
+        }
     ) { padding ->
         if (orders.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {

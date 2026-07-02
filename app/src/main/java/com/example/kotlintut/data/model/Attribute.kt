@@ -3,7 +3,7 @@ package com.example.kotlintut.data.model
 import androidx.compose.runtime.Immutable
 
 @Immutable
-data class Attribute(
+data class  Attribute(
     val name: String,
     val extraPrice: Double
 ) {

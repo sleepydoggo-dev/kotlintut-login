@@ -6,6 +6,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Fastfood
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -163,6 +165,15 @@ fun RegisterScreen(
     var password by remember { mutableStateOf("") }
     var fullName by remember { mutableStateOf("") }
 
+    // Password requirements logic
+    val hasMinLength = password.length >= 8
+    val hasUpperCase = password.any { it.isUpperCase() }
+    val hasLowerCase = password.any { it.isLowerCase() }
+    val hasDigit = password.any { it.isDigit() }
+    val hasSymbol = password.any { !it.isLetterOrDigit() }
+    val isPasswordValid = hasMinLength && hasUpperCase && hasLowerCase && hasDigit && hasSymbol
+    val isEmailValid = email.contains("@") && email.contains(".")
+
     Scaffold(
         modifier = Modifier.pointerInput(Unit) {},
         topBar = {
@@ -210,7 +221,8 @@ fun RegisterScreen(
                 label = { Text(translate("email")) },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                singleLine = true
+                singleLine = true,
+                isError = email.isNotEmpty() && !isEmailValid
             )
             Spacer(modifier = Modifier.height(12.dp))
             OutlinedTextField(
@@ -220,9 +232,22 @@ fun RegisterScreen(
                 modifier = Modifier.fillMaxWidth(),
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                singleLine = true
+                singleLine = true,
+                isError = password.isNotEmpty() && !isPasswordValid
             )
             
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Password Requirements Display
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(translate("password_requirements"), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                RequirementItem(translate("req_length"), hasMinLength)
+                RequirementItem(translate("req_upper"), hasUpperCase)
+                RequirementItem(translate("req_lower"), hasLowerCase)
+                RequirementItem(translate("req_digit"), hasDigit)
+                RequirementItem(translate("req_symbol"), hasSymbol)
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
             
             if (authState.isLoading) {
@@ -231,11 +256,25 @@ fun RegisterScreen(
                 Button(
                     onClick = { onRegister(username, email, password, fullName) },
                     modifier = Modifier.fillMaxWidth().height(55.dp),
-                    enabled = username.isNotBlank() && email.contains("@") && password.length >= 6
+                    enabled = username.isNotBlank() && isEmailValid && isPasswordValid
                 ) {
                     Text(translate("register"))
                 }
             }
         }
+    }
+}
+
+@Composable
+fun RequirementItem(text: String, isMet: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
+        Icon(
+            imageVector = if (isMet) Icons.Default.CheckCircle else Icons.Default.Cancel,
+            contentDescription = null,
+            tint = if (isMet) Color(0xFF4CAF50) else Color.Gray,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text, fontSize = 12.sp, color = if (isMet) Color(0xFF4CAF50) else Color.Gray)
     }
 }

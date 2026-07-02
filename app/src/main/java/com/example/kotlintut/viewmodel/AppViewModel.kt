@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.update
  * Global application state (Theme, Language, App-wide settings).
  */
 data class AppUiState(
-    val isDarkMode: Boolean = false,
+    val isDarkMode: Boolean? = null, // null means use system theme
     val language: String = "IT", // IT, EN
     val isReady: Boolean = false
 ) {
@@ -28,13 +28,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val uiState: StateFlow<AppUiState> = _uiState.asStateFlow()
 
     init {
-        val dark = prefs.getBoolean("DARK_MODE", false)
+        val darkValue = if (prefs.contains("DARK_MODE")) {
+            prefs.getBoolean("DARK_MODE", false)
+        } else {
+            null
+        }
         val lang = prefs.getString("LANGUAGE", "IT") ?: "IT"
-        _uiState.update { it.copy(isDarkMode = dark, language = lang, isReady = true) }
+        _uiState.update { it.copy(isDarkMode = darkValue, language = lang, isReady = true) }
     }
 
-    fun toggleTheme() {
-        val newVal = !uiState.value.isDarkMode
+    fun toggleTheme(currentSystemDark: Boolean) {
+        val currentIsDark = uiState.value.isDarkMode ?: currentSystemDark
+        val newVal = !currentIsDark
         prefs.edit().putBoolean("DARK_MODE", newVal).apply()
         _uiState.update { it.copy(isDarkMode = newVal) }
     }

@@ -48,9 +48,12 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun RistoranteTotemTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    userPreferenceDark: Boolean?,
     content: @Composable () -> Unit
 ) {
+    val isSystemDark = isSystemInDarkTheme()
+    val darkTheme = userPreferenceDark ?: isSystemDark
+
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
     val view = LocalView.current
     if (!view.isInEditMode) {
