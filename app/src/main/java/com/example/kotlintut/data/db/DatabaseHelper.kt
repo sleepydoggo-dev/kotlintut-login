@@ -12,7 +12,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
 
     companion object {
         private const val DATABASE_NAME = "RistoranteTotem_Compose.db"
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 3
 
         const val TABLE_USERS = "utenti"
         const val COLUMN_USER_ID = "id"
@@ -24,12 +24,20 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         const val COLUMN_CARD_EXPIRY = "card_expiry"
         const val COLUMN_CARD_CVV = "card_cvv"
 
+        const val TABLE_CATEGORIES = "categorie"
+        const val COLUMN_CAT_ID = "id"
+        const val COLUMN_CAT_REMOTE_ID = "remote_id"
+        const val COLUMN_CAT_NAME = "nome"
+
         const val TABLE_PRODUCTS = "prodotti"
         const val COLUMN_PROD_ID = "id"
+        const val COLUMN_PROD_REMOTE_ID = "remote_id"
         const val COLUMN_PROD_NAME = "nome_key"
         const val COLUMN_PROD_PRICE = "prezzo"
         const val COLUMN_PROD_DESC = "desc_key"
         const val COLUMN_PROD_CAT = "categoria"
+        const val COLUMN_PROD_IMG_URL = "immagine_url"
+        const val COLUMN_PROD_AVAILABLE = "disponibile"
 
         const val TABLE_CART = "carrello_salvato"
         const val COLUMN_CART_ID = "id"
@@ -83,12 +91,25 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         """.trimIndent())
 
         db.execSQL("""
+            CREATE TABLE $TABLE_CATEGORIES (
+                $COLUMN_CAT_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COLUMN_CAT_REMOTE_ID TEXT UNIQUE,
+                $COLUMN_CAT_NAME TEXT,
+                posizionamento INTEGER,
+                visibile INTEGER DEFAULT 1
+            )
+        """.trimIndent())
+
+        db.execSQL("""
             CREATE TABLE $TABLE_PRODUCTS (
                 $COLUMN_PROD_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COLUMN_PROD_REMOTE_ID TEXT UNIQUE,
                 $COLUMN_PROD_NAME TEXT,
                 $COLUMN_PROD_PRICE REAL,
                 $COLUMN_PROD_DESC TEXT,
-                $COLUMN_PROD_CAT TEXT
+                $COLUMN_PROD_CAT TEXT,
+                $COLUMN_PROD_IMG_URL TEXT,
+                $COLUMN_PROD_AVAILABLE INTEGER
             )
         """.trimIndent())
 
@@ -188,6 +209,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         db.execSQL("DROP TABLE IF EXISTS $TABLE_USERS")
+        db.execSQL("DROP TABLE IF EXISTS $TABLE_CATEGORIES")
         db.execSQL("DROP TABLE IF EXISTS $TABLE_PRODUCTS")
         db.execSQL("DROP TABLE IF EXISTS $TABLE_CART")
         db.execSQL("DROP TABLE IF EXISTS $TABLE_ORDERS")
@@ -197,27 +219,66 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         onCreate(db)
     }
 
-    fun userExists(username: String): Boolean {
-        val db = readableDatabase
-        return db.rawQuery("SELECT * FROM $TABLE_USERS WHERE $COLUMN_USERNAME=?", arrayOf(username)).use { it.count > 0 }
-    }
+    // --- METODI PER UPSERT (OFFLINE-FIRST) ---
 
-    fun registerUser(user: String, email: String, pass: String, nome: String): Long {
+    fun upsertCategories(networkList: List<com.example.kotlintut.data.network.NetworkCategory>) {
         val db = writableDatabase
-        val values = ContentValues().apply {
-            put(COLUMN_USERNAME, user)
-            put(COLUMN_EMAIL, email)
-            put(COLUMN_PASSWORD, pass)
-            put(COLUMN_NOME, nome)
+        db.beginTransaction()
+        try {
+            networkList.forEach { cat ->
+                val values = ContentValues().apply {
+                    put(COLUMN_CAT_REMOTE_ID, cat.id)
+                    put(COLUMN_CAT_NAME, cat.name)
+                    put("posizionamento", cat.position)
+                    put("visibile", if (cat.isVisible) 1 else 0)
+                }
+                db.insertWithOnConflict(TABLE_CATEGORIES, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
         }
-        return db.insert(TABLE_USERS, null, values)
     }
 
-    fun loginAndGetUsername(identifier: String, pass: String): String? {
-        val db = readableDatabase
-        return db.rawQuery("SELECT $COLUMN_USERNAME FROM $TABLE_USERS WHERE ($COLUMN_USERNAME=? OR $COLUMN_EMAIL=?) AND $COLUMN_PASSWORD=?", arrayOf(identifier, identifier, pass)).use {
-            if (it.moveToFirst()) it.getString(0) else null
+    fun upsertProducts(networkList: List<com.example.kotlintut.data.network.NetworkProduct>, categoryId: String) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            networkList.forEach { prod ->
+                val values = ContentValues().apply {
+                    put(COLUMN_PROD_REMOTE_ID, prod.id)
+                    put(COLUMN_PROD_NAME, prod.name)
+                    put(COLUMN_PROD_PRICE, prod.price)
+                    put(COLUMN_PROD_DESC, "") // Il JSON non ha descrizione, mettiamo vuoto
+                    put(COLUMN_PROD_CAT, categoryId)
+                    put(COLUMN_PROD_IMG_URL, prod.imageUrl)
+                    put(COLUMN_PROD_AVAILABLE, if (prod.isAvailable) 1 else 0)
+                }
+                db.insertWithOnConflict(TABLE_PRODUCTS, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
         }
+    }
+
+    fun getAllCategoriesLocal(): List<com.example.kotlintut.data.network.NetworkCategory> {
+        val list = mutableListOf<com.example.kotlintut.data.network.NetworkCategory>()
+        val db = readableDatabase
+        db.query(TABLE_CATEGORIES, null, "visibile=1", null, null, null, "posizionamento ASC").use { cursor ->
+            if (cursor.moveToFirst()) {
+                do {
+                    list.add(com.example.kotlintut.data.network.NetworkCategory(
+                        id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CAT_REMOTE_ID)),
+                        name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CAT_NAME)),
+                        parentCategory = null,
+                        position = cursor.getInt(cursor.getColumnIndexOrThrow("posizionamento")),
+                        isVisible = cursor.getInt(cursor.getColumnIndexOrThrow("visibile")) == 1
+                    ))
+                } while (cursor.moveToNext())
+            }
+        }
+        return list
     }
 
     fun getProductsByCategory(category: String): List<Product> {
@@ -226,27 +287,14 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         db.query(TABLE_PRODUCTS, null, "$COLUMN_PROD_CAT=?", arrayOf(category), null, null, null).use { cursor ->
             if (cursor.moveToFirst()) {
                 do {
-                    val nomeKey = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_NAME))
-                    val prezzo = cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_PROD_PRICE))
-                    val descKey = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_DESC))
-
-                    var imgKey = nomeKey.replace("prod_", "")
-                    imgKey = when (imgKey) {
-                        "hamburger" -> "burger"
-                        "pasta_al_pesto" -> "pesto"
-                        "pasta" -> "sugo"
-                        "fanta_zero" -> "fantazero"
-                        "lemon_soda" -> "lemon"
-                        "oran_soda" -> "oran"
-                        "the_pesca" -> "pesca"
-                        "the_limone" -> "lemonthe"
-                        "acqua" -> "water"
-                        "coca" -> "coca"
-                        "birra" -> "birra"
-                        else -> imgKey
-                    }
-
-                    list.add(Product(nomeKey, prezzo, descKey, imgKey, category))
+                    val name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_NAME))
+                    val price = cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_PROD_PRICE))
+                    val desc = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_DESC))
+                    val imgUrl = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_IMG_URL)) ?: ""
+                    
+                    // Se imgUrl è un URL (inizia con http), lo passiamo come imageKey
+                    // Altrimenti usiamo la vecchia logica di mapping se necessario
+                    list.add(Product(name, price, desc, imgUrl, category))
                 } while (cursor.moveToNext())
             }
         }
@@ -404,5 +452,42 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
             }
         }
         return items
+    }
+
+    fun loginAndGetUsername(identifier: String, pass: String): String? {
+        val db = readableDatabase
+        val cursor = db.query(
+            TABLE_USERS,
+            arrayOf(COLUMN_USERNAME),
+            "($COLUMN_USERNAME=? OR $COLUMN_EMAIL=?) AND $COLUMN_PASSWORD=?",
+            arrayOf(identifier, identifier, pass),
+            null, null, null
+        )
+        return cursor.use {
+            if (it.moveToFirst()) it.getString(0) else null
+        }
+    }
+
+    fun userExists(username: String): Boolean {
+        val db = readableDatabase
+        val cursor = db.query(
+            TABLE_USERS,
+            null,
+            "$COLUMN_USERNAME=?",
+            arrayOf(username),
+            null, null, null
+        )
+        return cursor.use { it.count > 0 }
+    }
+
+    fun registerUser(username: String, email: String, pass: String, nome: String): Long {
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            put(COLUMN_USERNAME, username)
+            put(COLUMN_EMAIL, email)
+            put(COLUMN_PASSWORD, pass)
+            put(COLUMN_NOME, nome)
+        }
+        return db.insert(TABLE_USERS, null, values)
     }
 }

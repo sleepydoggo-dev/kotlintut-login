@@ -7,10 +7,13 @@ import androidx.lifecycle.viewModelScope
 import com.example.kotlintut.data.db.DatabaseHelper
 import com.example.kotlintut.data.model.Attribute
 import com.example.kotlintut.data.model.Product
+import com.example.kotlintut.data.network.RetrofitClient
+import com.example.kotlintut.data.repository.MenuRepository
 import com.example.kotlintut.ui.theme.Locales
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -39,11 +42,31 @@ data class ProductUiState(
 
 class ProductViewModel(application: Application) : AndroidViewModel(application) {
     private val dbHelper = DatabaseHelper(application)
+    private val repository = MenuRepository(dbHelper, RetrofitClient.instance)
     private val authPrefs = application.getSharedPreferences("TOTEM_PREFS", 0)
     private val loggedUser: String? get() = authPrefs.getString("LOGGED_USERNAME", null)
 
     private val _uiState = MutableStateFlow(ProductUiState())
     val uiState: StateFlow<ProductUiState> = _uiState.asStateFlow()
+
+    private val _categoryNames = MutableStateFlow<List<String>>(emptyList())
+    val categoryNames: StateFlow<List<String>> = _categoryNames.asStateFlow()
+
+    init {
+        // Carica le categorie all'avvio
+        loadCategories()
+        loadFavorites()
+    }
+
+    private fun loadCategories() {
+        viewModelScope.launch {
+            repository.getCategories().collect { networkCategories ->
+                val names = networkCategories.map { it.name }
+                _categoryNames.value = names
+                _uiState.update { it.copy(categories = names) }
+            }
+        }
+    }
 
     fun updateLanguage(lang: String) {
         if (_uiState.value.language != lang) {
@@ -77,8 +100,11 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update { it.copy(selectedCategory = category, isLoading = true) }
         viewModelScope.launch {
             try {
-                val products = dbHelper.getProductsByCategory(category).map { translateProduct(it, lang) }
-                _uiState.update { it.copy(products = products, isLoading = false) }
+                // Scarica i prodotti solo quando viene cliccata la categoria
+                repository.getProductsByCategory(category).collect { products ->
+                    val translated = products.map { translateProduct(it, lang) }
+                    _uiState.update { it.copy(products = translated, isLoading = false) }
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message, isLoading = false) }
             }
