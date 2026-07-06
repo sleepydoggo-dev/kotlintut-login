@@ -27,6 +27,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(AppUiState())
     val uiState: StateFlow<AppUiState> = _uiState.asStateFlow()
 
+    /**
+     * Inizializza il ViewModel caricando le preferenze salvate di tema e lingua.
+     */
     init {
         val darkValue = if (prefs.contains("DARK_MODE")) {
             prefs.getBoolean("DARK_MODE", false)

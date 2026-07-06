@@ -122,6 +122,7 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
                 // Usiamo una variabile per navigare una sola volta
                 var navigated = false
                 repository.getProductsByCategory(category.id).collect { products ->
+                    android.util.Log.d("ProductViewModel", "Products collected for ${category.id}: ${products.size}")
                     val translated = products.map { translateProduct(it, lang) }
                     _uiState.update { it.copy(products = translated, isLoading = false) }
                     
@@ -207,8 +208,14 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         return product.copy(
             name = Locales.getString(product.name, lang),
             description = Locales.getString(product.description, lang),
-            formats = product.formats.map { it.copy(name = Locales.getString(it.name, lang)) },
-            sizes = product.sizes.map { it.copy(name = Locales.getString(it.name, lang)) }
+            attributes = product.attributes.map { attr ->
+                attr.copy(
+                    name = Locales.getString(attr.name, lang),
+                    values = attr.values?.map { opt ->
+                        opt.copy(name = Locales.getString(opt.name, lang))
+                    } ?: emptyList()
+                )
+            }
         )
     }
 }

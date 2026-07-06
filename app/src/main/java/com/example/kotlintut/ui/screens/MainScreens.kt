@@ -45,6 +45,9 @@ import com.example.kotlintut.ui.components.TotemTopBar
  * Categories Screen - Displays the list of available food categories.
  */
 /** Schermata che visualizza la griglia delle categorie, gestendo anche la navigazione gerarchica e il tasto indietro del sistema. */
+/**
+ * Schermata che elenca le categorie principali disponibili per l'ordine.
+ */
 @Composable
 fun CategoriesScreen(
     title: String,
@@ -196,17 +199,24 @@ fun ProductDetailScreen(
     customizeLabel: String,
     addLabel: String,
     onFavoriteToggle: () -> Unit,
-    onAddToCart: (Int, List<NetworkIngredient>, List<NetworkExtra>, NetworkOption?, NetworkOption?) -> Unit,
+    onAddToCart: (Int, List<NetworkIngredient>, List<NetworkExtra>, Map<String, NetworkOption>) -> Unit,
     onCartClick: () -> Unit,
     onBack: () -> Unit
 ) {
     var quantity by remember { mutableIntStateOf(1) }
     val removedIngredients = remember { mutableStateListOf<NetworkIngredient>() }
     val addedExtras = remember { mutableStateListOf<NetworkExtra>() }
-    
-    // Inizializza con la prima opzione disponibile se presente
-    var selectedFormat by remember { mutableStateOf(product.formats.firstOrNull()) }
-    var selectedSize by remember { mutableStateOf(product.sizes.firstOrNull()) }
+    val selectedAttributes = remember { mutableStateMapOf<String, NetworkOption>() }
+
+    // Inizializza gli attributi con la prima opzione se disponibile
+    LaunchedEffect(product) {
+        product.attributes.forEach { attr ->
+            val values = attr.values
+            if (!values.isNullOrEmpty() && !selectedAttributes.containsKey(attr.name)) {
+                selectedAttributes[attr.name] = values.first()
+            }
+        }
+    }
 
     Scaffold(
         modifier = Modifier.pointerInput(Unit) {},
@@ -225,12 +235,11 @@ fun ProductDetailScreen(
                 basePrice = product.price,
                 quantity = quantity,
                 addedExtras = addedExtras,
-                selectedFormat = selectedFormat,
-                selectedSize = selectedSize,
+                selectedAttributes = selectedAttributes.toMap(),
                 buttonLabel = addLabel,
                 onQuantityIncrease = { quantity++ },
                 onQuantityDecrease = { if (quantity > 1) quantity-- },
-                onAddToCart = { onAddToCart(quantity, removedIngredients.toList(), addedExtras.toList(), selectedFormat, selectedSize) }
+                onAddToCart = { onAddToCart(quantity, removedIngredients.toList(), addedExtras.toList(), selectedAttributes.toMap()) }
             )
         }
     ) { padding ->
@@ -253,22 +262,12 @@ fun ProductDetailScreen(
             
             Spacer(modifier = Modifier.height(24.dp))
 
-            if (product.formats.isNotEmpty()) {
+            product.attributes.forEach { attribute ->
                 SingleOptionSelector(
-                    title = "Formato",
-                    options = product.formats,
-                    selectedOption = selectedFormat,
-                    onOptionSelected = { selectedFormat = it }
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-
-            if (product.sizes.isNotEmpty()) {
-                SingleOptionSelector(
-                    title = "Dimensione",
-                    options = product.sizes,
-                    selectedOption = selectedSize,
-                    onOptionSelected = { selectedSize = it }
+                    title = attribute.name,
+                    options = attribute.values ?: emptyList(),
+                    selectedOption = selectedAttributes[attribute.name],
+                    onOptionSelected = { selectedAttributes[attribute.name] = it }
                 )
                 Spacer(modifier = Modifier.height(24.dp))
             }
@@ -442,8 +441,7 @@ private fun ProductPurchaseBar(
     basePrice: Double,
     quantity: Int,
     addedExtras: List<NetworkExtra>,
-    selectedFormat: NetworkOption? = null,
-    selectedSize: NetworkOption? = null,
+    selectedAttributes: Map<String, NetworkOption>,
     buttonLabel: String,
     onQuantityIncrease: () -> Unit,
     onQuantityDecrease: () -> Unit,
@@ -467,9 +465,8 @@ private fun ProductPurchaseBar(
                 modifier = Modifier.height(55.dp)
             ) {
                 val extrasTotal = addedExtras.sumOf { it.price }
-                val formatExtra = selectedFormat?.price ?: 0.0
-                val sizeExtra = selectedSize?.price ?: 0.0
-                val totalPrice = (basePrice + extrasTotal + formatExtra + sizeExtra) * quantity
+                val attributesExtra = selectedAttributes.values.sumOf { it.price }
+                val totalPrice = (basePrice + extrasTotal + attributesExtra) * quantity
                 Text("$buttonLabel  € ${String.format("%.2f", totalPrice)}")
             }
         }
@@ -628,6 +625,9 @@ fun SingleOptionSelector(
 }
 
 /** Visualizza un messaggio centrato quando una lista di prodotti o categorie risulta vuota. */
+/**
+ * Visualizza un messaggio quando una lista o una schermata è vuota.
+ */
 @Composable
 private fun EmptyState(message: String) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

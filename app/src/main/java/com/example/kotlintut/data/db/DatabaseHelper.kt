@@ -16,7 +16,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
 
     companion object {
         private const val DATABASE_NAME = "RistoranteTotem_Compose.db"
-        private const val DATABASE_VERSION = 7
+        private const val DATABASE_VERSION = 8
 
         const val TABLE_USERS = "utenti"
         const val COLUMN_USER_ID = "id"
@@ -42,8 +42,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         const val COLUMN_PROD_CAT = "categoria"
         const val COLUMN_PROD_IMG_URL = "immagine_url"
         const val COLUMN_PROD_AVAILABLE = "disponibile"
-        const val COLUMN_PROD_FORMATS = "formati"
-        const val COLUMN_PROD_SIZES = "dimensioni"
+        const val COLUMN_PROD_ATTRIBUTES = "attributi"
 
         const val TABLE_CART = "carrello_salvato"
         const val COLUMN_CART_ID = "id"
@@ -55,8 +54,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         const val COLUMN_CART_IMG = "prodotto_img"
         const val COLUMN_CART_REMOVED_ING = "removed_ingredients"
         const val COLUMN_CART_ADDED_EXT = "added_extras"
-        const val COLUMN_CART_FORMAT = "selected_format"
-        const val COLUMN_CART_SIZE = "selected_size"
+        const val COLUMN_CART_ATTRIBUTES = "selected_attributes"
 
         const val TABLE_ORDERS = "ordini"
         const val COLUMN_ORDER_ID = "id"
@@ -72,9 +70,8 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         const val COLUMN_ITEM_QTY = "quantita"
         const val COLUMN_ITEM_REMOVED_ING = "removed_ingredients"
         const val COLUMN_ITEM_ADDED_EXT = "added_extras"
-        const val COLUMN_ITEM_FORMAT = "selected_format"
-        const val COLUMN_ITEM_SIZE = "selected_size"
-
+        const val COLUMN_ITEM_ATTRIBUTES = "selected_attributes"
+        
         const val TABLE_INGREDIENTS = "ingredienti"
         const val COLUMN_ING_ID = "id_ingrediente"
         const val COLUMN_ING_PROD_ID = "product_id"
@@ -132,8 +129,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                 $COLUMN_PROD_CAT TEXT,
                 $COLUMN_PROD_IMG_URL TEXT,
                 $COLUMN_PROD_AVAILABLE INTEGER,
-                $COLUMN_PROD_FORMATS TEXT,
-                $COLUMN_PROD_SIZES TEXT
+                $COLUMN_PROD_ATTRIBUTES TEXT
             )
         """.trimIndent())
 
@@ -148,8 +144,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                 $COLUMN_CART_IMG TEXT,
                 $COLUMN_CART_REMOVED_ING TEXT,
                 $COLUMN_CART_ADDED_EXT TEXT,
-                $COLUMN_CART_FORMAT TEXT,
-                $COLUMN_CART_SIZE TEXT
+                $COLUMN_CART_ATTRIBUTES TEXT
             )
         """.trimIndent())
 
@@ -171,8 +166,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                 $COLUMN_ITEM_QTY INTEGER,
                 $COLUMN_ITEM_REMOVED_ING TEXT,
                 $COLUMN_ITEM_ADDED_EXT TEXT,
-                $COLUMN_ITEM_FORMAT TEXT,
-                $COLUMN_ITEM_SIZE TEXT,
+                $COLUMN_ITEM_ATTRIBUTES TEXT,
                 FOREIGN KEY($COLUMN_ITEM_ORDER_ID) REFERENCES $TABLE_ORDERS($COLUMN_ORDER_ID)
             )
         """.trimIndent())
@@ -271,8 +265,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                     put(COLUMN_PROD_CAT, requestedCategoryId)
                     put(COLUMN_PROD_IMG_URL, prod.imageUrl)
                     put(COLUMN_PROD_AVAILABLE, if (prod.isAvailable) 1 else 0)
-                    put(COLUMN_PROD_FORMATS, gson.toJson(prod.formats))
-                    put(COLUMN_PROD_SIZES, gson.toJson(prod.sizes))
+                    put(COLUMN_PROD_ATTRIBUTES, gson.toJson(prod.attributes))
                 }
                 db.insertWithOnConflict(TABLE_PRODUCTS, null, values, SQLiteDatabase.CONFLICT_REPLACE)
 
@@ -354,7 +347,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         val list = mutableListOf<Product>()
         val db = readableDatabase
         val gson = Gson()
-        val optionType = object : TypeToken<List<com.example.kotlintut.data.network.NetworkOption>>() {}.type
+        val attributeType = object : TypeToken<List<com.example.kotlintut.data.network.NetworkAttribute>>() {}.type
         
         db.query(TABLE_PRODUCTS, null, "$COLUMN_PROD_CAT=?", arrayOf(category), null, null, null).use { cursor ->
             if (cursor.moveToFirst()) {
@@ -365,12 +358,10 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                     val desc = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_DESC))
                     val imgUrl = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_IMG_URL)) ?: ""
                     
-                    val formatsJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_FORMATS))
-                    val sizesJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_SIZES))
-                    val formats: List<com.example.kotlintut.data.network.NetworkOption> = gson.fromJson(formatsJson, optionType) ?: emptyList()
-                    val sizes: List<com.example.kotlintut.data.network.NetworkOption> = gson.fromJson(sizesJson, optionType) ?: emptyList()
+                    val attrJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_ATTRIBUTES))
+                    val attributes: List<com.example.kotlintut.data.network.NetworkAttribute> = gson.fromJson(attrJson, attributeType) ?: emptyList()
 
-                    list.add(Product(remoteId, name, price, desc, imgUrl, category, formats, sizes))
+                    list.add(Product(remoteId, name, price, desc, imgUrl, category, attributes))
                 } while (cursor.moveToNext())
             }
         }
@@ -417,8 +408,6 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
     fun getFavorites(username: String): List<Product> {
         val list = mutableListOf<Product>()
         val db = readableDatabase
-        val gson = Gson()
-        val optionType = object : TypeToken<List<com.example.kotlintut.data.network.NetworkOption>>() {}.type
 
         db.query(TABLE_FAVORITES, null, "$COLUMN_FAV_USER=?", arrayOf(username), null, null, null).use { cursor ->
             if (cursor.moveToFirst()) {
@@ -478,8 +467,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                 put(COLUMN_CART_IMG, item.product.imageKey)
                 put(COLUMN_CART_REMOVED_ING, gson.toJson(item.removedIngredients))
                 put(COLUMN_CART_ADDED_EXT, gson.toJson(item.addedExtras))
-                put(COLUMN_CART_FORMAT, gson.toJson(item.selectedFormat))
-                put(COLUMN_CART_SIZE, gson.toJson(item.selectedSize))
+                put(COLUMN_CART_ATTRIBUTES, gson.toJson(item.selectedAttributes))
             }
             db.insert(TABLE_CART, null, values)
         }
@@ -492,7 +480,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         val gson = Gson()
         val typeIng = object : TypeToken<List<NetworkIngredient>>() {}.type
         val typeExt = object : TypeToken<List<NetworkExtra>>() {}.type
-        val typeOpt = object : TypeToken<com.example.kotlintut.data.network.NetworkOption>() {}.type
+        val typeAttr = object : TypeToken<Map<String, com.example.kotlintut.data.network.NetworkOption>>() {}.type
 
         db.query(TABLE_CART, null, "$COLUMN_CART_USER=?", arrayOf(username), null, null, null).use { cursor ->
             if (cursor.moveToFirst()) {
@@ -507,15 +495,13 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                     
                     val removedIngJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CART_REMOVED_ING))
                     val addedExtJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CART_ADDED_EXT))
-                    val formatJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CART_FORMAT))
-                    val sizeJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CART_SIZE))
+                    val attrJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CART_ATTRIBUTES))
 
                     val removedIng: List<NetworkIngredient> = gson.fromJson(removedIngJson, typeIng) ?: emptyList()
                     val addedExt: List<NetworkExtra> = gson.fromJson(addedExtJson, typeExt) ?: emptyList()
-                    val selectedFormat: com.example.kotlintut.data.network.NetworkOption? = gson.fromJson(formatJson, typeOpt)
-                    val selectedSize: com.example.kotlintut.data.network.NetworkOption? = gson.fromJson(sizeJson, typeOpt)
+                    val selectedAttributes: Map<String, com.example.kotlintut.data.network.NetworkOption> = gson.fromJson(attrJson, typeAttr) ?: emptyMap()
 
-                    list.add(CartItem(product, cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_CART_QTY)), removedIng, addedExt, selectedFormat, selectedSize))
+                    list.add(CartItem(product, cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_CART_QTY)), removedIng, addedExt, selectedAttributes))
                 } while (cursor.moveToNext())
             }
         }
@@ -542,8 +528,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                     put(COLUMN_ITEM_QTY, item.quantity)
                     put(COLUMN_ITEM_REMOVED_ING, gson.toJson(item.removedIngredients))
                     put(COLUMN_ITEM_ADDED_EXT, gson.toJson(item.addedExtras))
-                    put(COLUMN_ITEM_FORMAT, gson.toJson(item.selectedFormat))
-                    put(COLUMN_ITEM_SIZE, gson.toJson(item.selectedSize))
+                    put(COLUMN_ITEM_ATTRIBUTES, gson.toJson(item.selectedAttributes))
                 }
                 db.insert(TABLE_ORDER_ITEMS, null, itemValues)
             }
@@ -575,7 +560,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         val gson = Gson()
         val typeIng = object : TypeToken<List<NetworkIngredient>>() {}.type
         val typeExt = object : TypeToken<List<NetworkExtra>>() {}.type
-        val typeOpt = object : TypeToken<com.example.kotlintut.data.network.NetworkOption>() {}.type
+        val typeAttr = object : TypeToken<Map<String, com.example.kotlintut.data.network.NetworkOption>>() {}.type
 
         db.query(TABLE_ORDER_ITEMS, null, "$COLUMN_ITEM_ORDER_ID=?", arrayOf(orderId.toString()), null, null, null).use { cursor ->
             if (cursor.moveToFirst()) {
@@ -590,15 +575,13 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                     
                     val removedIngJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ITEM_REMOVED_ING))
                     val addedExtJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ITEM_ADDED_EXT))
-                    val formatJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ITEM_FORMAT))
-                    val sizeJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ITEM_SIZE))
+                    val attrJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ITEM_ATTRIBUTES))
 
                     val removedIng: List<NetworkIngredient> = gson.fromJson(removedIngJson, typeIng) ?: emptyList()
                     val addedExt: List<NetworkExtra> = gson.fromJson(addedExtJson, typeExt) ?: emptyList()
-                    val selectedFormat: com.example.kotlintut.data.network.NetworkOption? = gson.fromJson(formatJson, typeOpt)
-                    val selectedSize: com.example.kotlintut.data.network.NetworkOption? = gson.fromJson(sizeJson, typeOpt)
+                    val selectedAttributes: Map<String, com.example.kotlintut.data.network.NetworkOption> = gson.fromJson(attrJson, typeAttr) ?: emptyMap()
 
-                    items.add(CartItem(product, cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ITEM_QTY)), removedIng, addedExt, selectedFormat, selectedSize))
+                    items.add(CartItem(product, cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ITEM_QTY)), removedIng, addedExt, selectedAttributes))
                 } while (cursor.moveToNext())
             }
         }

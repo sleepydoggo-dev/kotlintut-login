@@ -119,12 +119,9 @@ fun CartItemRow(item: CartItem, onQuantityChange: (CartItem, Int) -> Unit) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(item.product.name, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 
-                // Formato e Dimensione selezionati
-                if (item.selectedFormat != null) {
-                    Text("Formato: ${item.selectedFormat.name}", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-                }
-                if (item.selectedSize != null) {
-                    Text("Dimensione: ${item.selectedSize.name}", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                // Attributi selezionati (es. Formato, Dimensione)
+                item.selectedAttributes.forEach { (type, option) ->
+                    Text("$type: ${option.name}", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                 }
 
                 // Ingredienti rimossi
@@ -310,6 +307,9 @@ fun PaymentScreen(
 }
 
 /** Riga selezionabile per la scelta del metodo di pagamento con un pulsante radio. */
+/**
+ * Visualizza un singolo metodo di pagamento selezionabile.
+ */
 @Composable
 fun PaymentMethodRow(label: String, isSelected: Boolean, onClick: () -> Unit) {
     Row(
@@ -455,12 +455,9 @@ fun OrderRowWithDetails(order: Order, language: String, onReorder: () -> Unit) {
                                 Text("€ ${String.format("%.2f", item.getTotalPrice())}", fontSize = 14.sp)
                             }
                             
-                            // Formato e Dimensione
-                            if (item.selectedFormat != null || item.selectedSize != null) {
-                                val options = listOfNotNull(
-                                    item.selectedFormat?.let { "Formato: ${it.name}" },
-                                    item.selectedSize?.let { "Dimensione: ${it.name}" }
-                                ).joinToString(" - ")
+                            // Attributi selezionati
+                            if (item.selectedAttributes.isNotEmpty()) {
+                                val options = item.selectedAttributes.entries.joinToString(" - ") { "${it.key}: ${it.value.name}" }
                                 Text("  $options", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                             }
 

@@ -25,8 +25,8 @@ class MenuRepository(
         try {
             // 2. Chiamata POST al server
             val response = api.getCategories()
-            if (response != null && response.success) {
-                val data = response.data ?: emptyList()
+            if (response.success) {
+                val data = response.data
                 android.util.Log.d("MenuRepository", "API Response success, data size: ${data.size}")
                 
                 // 3. Upsert nel database
@@ -55,19 +55,19 @@ class MenuRepository(
             var response = api.getProducts(mapOf("categorie" to categoryId))
             
             // Tentativo 2: Fallback su "categoria" (Singolare)
-            if (response == null || !response.success || response.data.isNullOrEmpty()) {
+            if (!response.success || response.data.isEmpty()) {
                 android.util.Log.w("MenuRepository", "No products with 'categorie', trying 'categoria'...")
                 response = api.getProducts(mapOf("categoria" to categoryId))
             }
 
             // Tentativo 3: Fallback su "categoria_id"
-            if (response == null || !response.success || response.data.isNullOrEmpty()) {
+            if (!response.success || response.data.isEmpty()) {
                 android.util.Log.w("MenuRepository", "No products with 'categoria', trying 'categoria_id'...")
                 response = api.getProducts(mapOf("categoria_id" to categoryId))
             }
 
-            if (response != null && response.success) {
-                val data = response.data ?: emptyList()
+            if (response.success) {
+                val data = response.data
                 android.util.Log.d("MenuRepository", "API Response: SUCCESS. Products found: ${data.size}")
                 
                 // 3. Upsert nel database
@@ -78,7 +78,7 @@ class MenuRepository(
                 android.util.Log.d("MenuRepository", "Emitting ${updated.size} products after update")
                 emit(updated)
             } else {
-                android.util.Log.e("MenuRepository", "API Response: FAILED or EMPTY. Success: ${response?.success}")
+                android.util.Log.e("MenuRepository", "API Response: FAILED or EMPTY. Success: ${response.success}")
             }
         } catch (e: Exception) {
             android.util.Log.e("MenuRepository", "NETWORK ERROR for $categoryId: ${e.message}", e)

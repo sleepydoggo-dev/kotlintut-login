@@ -19,6 +19,9 @@ import androidx.compose.ui.unit.sp
 
 /** Barra superiore personalizzata dell'applicazione che gestisce il titolo, il menu laterale, il tasto indietro e l'icona del carrello animata. */
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * TopBar personalizzata dell'applicazione con supporto per menu, navigazione indietro e contatore carrello.
+ */
 @Composable
 fun TotemTopBar(
     title: String = "Ristorante Totem",
@@ -89,6 +92,9 @@ fun TotemTopBar(
 }
 
 /** Testata del menu laterale (Drawer) che visualizza il nome dell'utente loggato e un messaggio di benvenuto. */
+/**
+ * Header per il menu a comparsa (Drawer) che mostra il nome dell'utente loggato.
+ */
 @Composable
 fun DrawerHeader(username: String, welcomeText: String) {
     Box(
@@ -123,6 +129,9 @@ fun DrawerHeader(username: String, welcomeText: String) {
 }
 
 /** Singolo elemento cliccabile del menu laterale con icona e label personalizzata. */
+/**
+ * Singolo elemento cliccabile all'interno del menu laterale (Drawer).
+ */
 @Composable
 fun DrawerItem(
     label: String,

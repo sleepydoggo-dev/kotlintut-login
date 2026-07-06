@@ -1,8 +1,11 @@
 package com.example.kotlintut.data.model
 
 import androidx.compose.runtime.Immutable
-import com.example.kotlintut.data.network.NetworkOption
+import com.example.kotlintut.data.network.NetworkAttribute
 
+/**
+ * Modello di dominio per un prodotto del menu.
+ */
 @Immutable
 data class Product(
     val id: String = "",
@@ -11,6 +14,5 @@ data class Product(
     val description: String,
     val imageKey: String,
     val category: String = "",
-    val formats: List<NetworkOption> = emptyList(),
-    val sizes: List<NetworkOption> = emptyList()
+    val attributes: List<NetworkAttribute> = emptyList()
 )

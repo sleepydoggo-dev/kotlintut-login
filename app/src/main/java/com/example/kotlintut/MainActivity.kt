@@ -14,6 +14,9 @@ import com.example.kotlintut.navigation.AppNavigation
 import com.example.kotlintut.ui.theme.RistoranteTotemTheme
 import com.example.kotlintut.viewmodel.AppViewModel
 
+/**
+ * Attività principale dell'applicazione che funge da entry point.
+ */
 class MainActivity : ComponentActivity() {
     /** Punto di ingresso principale dell'attività: configura il tema dell'app e avvia la navigazione Compose. */
     override fun onCreate(savedInstanceState: Bundle?) {

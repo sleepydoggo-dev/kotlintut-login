@@ -233,6 +233,9 @@ object Locales {
         "desc_the_limone" to "Lemon iced tea 33cl."
     )
 
+    /**
+     * Recupera una stringa localizzata data una chiave e la lingua.
+     */
     fun getString(key: String, lang: String): String {
         val map = if (lang == "EN") EN else IT
         return map[key] ?: key

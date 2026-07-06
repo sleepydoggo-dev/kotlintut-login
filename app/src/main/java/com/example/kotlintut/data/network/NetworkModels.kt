@@ -5,6 +5,9 @@ import com.google.gson.annotations.SerializedName
 /**
  * Wrapper generico per le risposte dell'API
  */
+/**
+ * Metodo di utilità per creare un oggetto ApiResponse (costruttore implicito gestito da GSON).
+ */
 data class ApiResponse<T>(
     @SerializedName("success") val success: Boolean,
     @SerializedName("data") val data: List<T>
@@ -12,6 +15,9 @@ data class ApiResponse<T>(
 
 /**
  * Modello categoria ricevuto dal server
+ */
+/**
+ * Modello categoria ricevuto dal server.
  */
 data class NetworkCategory(
     @SerializedName("_id") val id: String,
@@ -24,6 +30,9 @@ data class NetworkCategory(
 /**
  * Modello ingrediente base
  */
+/**
+ * Modello ingrediente base.
+ */
 data class NetworkIngredient(
     @SerializedName("idIngrediente") val id: String,
     @SerializedName("nome") val name: String,
@@ -32,6 +41,9 @@ data class NetworkIngredient(
 
 /**
  * Modello aggiunta extra
+ */
+/**
+ * Modello aggiunta extra.
  */
 data class NetworkExtra(
     @SerializedName("idIngrediente") val id: String,
@@ -42,13 +54,32 @@ data class NetworkExtra(
 /**
  * Modello opzione singola (formato o dimensione)
  */
+/**
+ * Modello opzione singola (formato o dimensione).
+ */
 data class NetworkOption(
+    @SerializedName("valore") val name: String,
+    @SerializedName("prezzo") val price: Double,
+    @SerializedName("_id") val id: String = ""
+)
+
+/**
+ * Modello attributo dinamico (es. FORMATO, DIMENSIONE)
+ */
+/**
+ * Modello attributo dinamico (es. FORMATO, DIMENSIONE).
+ */
+data class NetworkAttribute(
+    @SerializedName("_id") val id: String,
     @SerializedName("nome") val name: String,
-    @SerializedName("prezzo") val price: Double
+    @SerializedName("valori") val values: List<NetworkOption>?
 )
 
 /**
  * Modello prodotto ricevuto dal server
+ */
+/**
+ * Modello prodotto ricevuto dal server.
  */
 data class NetworkProduct(
     @SerializedName("_id") val id: String,
@@ -59,6 +90,5 @@ data class NetworkProduct(
     @SerializedName("disponibile") val isAvailable: Boolean,
     @SerializedName("ingredienti") val ingredients: List<NetworkIngredient>?,
     @SerializedName("aggiunte") val extras: List<NetworkExtra>?,
-    @SerializedName("formato") val formats: List<NetworkOption>?,
-    @SerializedName("dimensione") val sizes: List<NetworkOption>?
+    @SerializedName("attributi") val attributes: List<NetworkAttribute>?
 )

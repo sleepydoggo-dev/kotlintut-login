@@ -243,8 +243,8 @@ fun AppNavigation(
                         customizeLabel = appState.getString("customize_order"),
                         addLabel = appState.getString("add_to_cart"),
                         onFavoriteToggle = { productViewModel.toggleFavorite(product) },
-                        onAddToCart = { qty, removedIngs, addedExts ->
-                            cartViewModel.addToCart(authState.loggedUser, product, qty, removedIngs, addedExts)
+                        onAddToCart = { qty, removedIngs, addedExts, selectedAttrs ->
+                            cartViewModel.addToCart(authState.loggedUser, product, qty, removedIngs, addedExts, selectedAttrs)
                         },
                         onCartClick = { navController.navigate(Screen.Cart.route) },
                         onBack = { navController.popBackStack() }

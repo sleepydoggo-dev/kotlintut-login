@@ -30,6 +30,9 @@ import com.example.kotlintut.ui.theme.Locales
 /**
  * Favorites Screen - Displays products marked as favorites by the user.
  */
+/**
+ * Schermata che visualizza la lista dei prodotti preferiti dell'utente.
+ */
 @Composable
 fun FavoritesScreen(
     title: String,
@@ -73,6 +76,9 @@ fun FavoritesScreen(
 
 /**
  * Options Screen - Manage Theme and Language.
+ */
+/**
+ * Schermata delle opzioni per configurare il tema e la lingua dell'applicazione.
  */
 @Composable
 fun OptionsScreen(

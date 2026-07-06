@@ -46,6 +46,9 @@ private val LightColorScheme = lightColorScheme(
     onPrimaryContainer = Color(0xFF3D0000)
 )
 
+/**
+ * Configura e applica il tema grafico dell'applicazione Ristorante Totem.
+ */
 @Composable
 fun RistoranteTotemTheme(
     userPreferenceDark: Boolean?,

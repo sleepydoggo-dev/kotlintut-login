@@ -27,6 +27,9 @@ import androidx.compose.ui.unit.sp
 import com.example.kotlintut.ui.theme.Locales
 import com.example.kotlintut.viewmodel.AuthUiState
 
+/**
+ * Schermata di accesso iniziale che permette di scegliere tra Login, Registrazione o navigazione come Ospite.
+ */
 @Composable
 fun AuthGatewayScreen(
     language: String,
@@ -74,6 +77,9 @@ fun AuthGatewayScreen(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Schermata per l'inserimento delle credenziali di accesso (Login).
+ */
 @Composable
 fun LoginScreen(
     authState: AuthUiState,
@@ -152,6 +158,9 @@ fun LoginScreen(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Schermata per la creazione di un nuovo account (Registrazione).
+ */
 @Composable
 fun RegisterScreen(
     authState: AuthUiState,
@@ -265,6 +274,9 @@ fun RegisterScreen(
     }
 }
 
+/**
+ * Visualizza un singolo requisito per la validità della password.
+ */
 @Composable
 fun RequirementItem(text: String, isMet: Boolean) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {

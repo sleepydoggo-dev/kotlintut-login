@@ -58,23 +58,21 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
         quantity: Int,
         removedIngredients: List<com.example.kotlintut.data.network.NetworkIngredient>,
         addedExtras: List<com.example.kotlintut.data.network.NetworkExtra>,
-        selectedFormat: com.example.kotlintut.data.network.NetworkOption? = null,
-        selectedSize: com.example.kotlintut.data.network.NetworkOption? = null
+        selectedAttributes: Map<String, com.example.kotlintut.data.network.NetworkOption> = emptyMap()
     ) {
         val currentItems = _uiState.value.items.toMutableList()
         val existingIndex = currentItems.indexOfFirst { 
             it.product.name == product.name && 
             it.removedIngredients == removedIngredients && 
             it.addedExtras == addedExtras &&
-            it.selectedFormat == selectedFormat &&
-            it.selectedSize == selectedSize
+            it.selectedAttributes == selectedAttributes
         }
 
         if (existingIndex != -1) {
             val existingItem = currentItems[existingIndex]
             currentItems[existingIndex] = existingItem.copy(quantity = existingItem.quantity + quantity)
         } else {
-            currentItems.add(CartItem(product, quantity, removedIngredients, addedExtras, selectedFormat, selectedSize))
+            currentItems.add(CartItem(product, quantity, removedIngredients, addedExtras, selectedAttributes))
         }
 
         _uiState.update { it.copy(items = currentItems) }
@@ -154,8 +152,7 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
                 it.product.name == newItem.product.name && 
                 it.removedIngredients == newItem.removedIngredients && 
                 it.addedExtras == newItem.addedExtras &&
-                it.selectedFormat == newItem.selectedFormat &&
-                it.selectedSize == newItem.selectedSize
+                it.selectedAttributes == newItem.selectedAttributes
             }
             if (existingIndex != -1) {
                 val existingItem = currentItems[existingIndex]
