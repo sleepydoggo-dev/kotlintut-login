@@ -63,18 +63,46 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
         selectedAttributes: Map<String, com.example.kotlintut.data.network.NetworkOption> = emptyMap()
     ) {
         val currentItems = _uiState.value.items.toMutableList()
+        
+        // Trasforma gli attributi selezionati nel formato richiesto dal server
+        val orderAttributes = selectedAttributes.mapNotNull { (attrName, option) ->
+            val attr = product.attributes.find { it.name == attrName }
+            if (attr != null) {
+                com.example.kotlintut.data.network.OrderSelectedAttribute(
+                    attributeId = attr.id,
+                    attributeName = attrName,
+                    valueId = option.id,
+                    valueName = option.name,
+                    price = option.price
+                )
+            } else null
+        }
+
         val existingIndex = currentItems.indexOfFirst { 
-            it.product.name == product.name && 
+            it.name == product.name && 
             it.removedIngredients == removedIngredients && 
             it.addedExtras == addedExtras &&
-            it.selectedAttributes == selectedAttributes
+            it.orderAttributes == orderAttributes
         }
 
         if (existingIndex != -1) {
             val existingItem = currentItems[existingIndex]
             currentItems[existingIndex] = existingItem.copy(quantity = existingItem.quantity + quantity)
         } else {
-            currentItems.add(CartItem(product, quantity, removedIngredients, addedExtras, selectedAttributes))
+            currentItems.add(CartItem(
+                id = product.id,
+                name = product.name,
+                price = product.price,
+                quantity = quantity,
+                orderAttributes = orderAttributes,
+                addedExtras = addedExtras.map { it.copy(qta = 1) }, // Assicuriamo qta = 1 per le aggiunte
+                removedIngredients = removedIngredients.map { it.copy(qta = 1) }, // Assicuriamo qta = 1 per rimossi
+                description = product.description,
+                imageKey = product.imageKey,
+                category = product.category,
+                fullAttributesList = product.attributes,
+                selectedAttributesMap = selectedAttributes
+            ))
         }
 
         _uiState.update { it.copy(items = currentItems) }
@@ -151,10 +179,10 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
         val currentItems = _uiState.value.items.toMutableList()
         orderItems.forEach { newItem ->
             val existingIndex = currentItems.indexOfFirst { 
-                it.product.name == newItem.product.name && 
+                it.name == newItem.name && 
                 it.removedIngredients == newItem.removedIngredients && 
                 it.addedExtras == newItem.addedExtras &&
-                it.selectedAttributes == newItem.selectedAttributes
+                it.orderAttributes == newItem.orderAttributes
             }
             if (existingIndex != -1) {
                 val existingItem = currentItems[existingIndex]
@@ -201,8 +229,10 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
         val currentState = _uiState.value
         val payload = OrderPayload(
             prodotti = currentState.items,
-            segnaposto = segnaposto,
-            totale = currentState.total
+            food = currentState.items, // Per ora consideriamo tutto food come nell'esempio
+            numeroSegnaPosto = segnaposto,
+            totale = currentState.total,
+            totaleNonScontato = currentState.total
         )
         
         val gson = Gson()

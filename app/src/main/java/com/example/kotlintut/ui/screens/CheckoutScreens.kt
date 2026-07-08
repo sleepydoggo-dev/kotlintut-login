@@ -72,7 +72,7 @@ fun CartScreen(
                 modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
-                items(items, key = { it.product.name + it.removedIngredients.hashCode() + it.addedExtras.hashCode() }) { item ->
+                items(items, key = { it.name + it.removedIngredients.hashCode() + it.addedExtras.hashCode() + it.orderAttributes.hashCode() }) { item ->
                     val dismissState = rememberSwipeToDismissBoxState(
                         confirmValueChange = {
                             if (it == SwipeToDismissBoxValue.EndToStart) {
@@ -117,11 +117,11 @@ fun CartItemRow(item: CartItem, onQuantityChange: (CartItem, Int) -> Unit) {
     Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(item.product.name, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(item.name, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 
                 // Attributi selezionati (es. Formato, Dimensione)
-                item.selectedAttributes.forEach { (type, option) ->
-                    Text("$type: ${option.name}", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                item.orderAttributes.forEach { attr ->
+                    Text("${attr.attributeName}: ${attr.valueName}", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                 }
 
                 // Ingredienti rimossi
@@ -451,13 +451,13 @@ fun OrderRowWithDetails(order: Order, language: String, onReorder: () -> Unit) {
                     order.items.forEach { item ->
                         Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("${item.quantity}x ${item.product.name}", fontSize = 14.sp)
+                                Text("${item.quantity}x ${item.name}", fontSize = 14.sp)
                                 Text("€ ${String.format("%.2f", item.getTotalPrice())}", fontSize = 14.sp)
                             }
                             
                             // Attributi selezionati
-                            if (item.selectedAttributes.isNotEmpty()) {
-                                val options = item.selectedAttributes.entries.joinToString(" - ") { "${it.key}: ${it.value.name}" }
+                            if (item.orderAttributes.isNotEmpty()) {
+                                val options = item.orderAttributes.joinToString(" - ") { "${it.attributeName}: ${it.valueName}" }
                                 Text("  $options", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                             }
 

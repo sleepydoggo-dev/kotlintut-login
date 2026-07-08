@@ -5,9 +5,6 @@ import com.google.gson.annotations.SerializedName
 /**
  * Wrapper generico per le risposte dell'API
  */
-/**
- * Metodo di utilità per creare un oggetto ApiResponse (costruttore implicito gestito da GSON).
- */
 data class ApiResponse<T>(
     @SerializedName("success") val success: Boolean,
     @SerializedName("data") val data: List<T>
@@ -15,9 +12,6 @@ data class ApiResponse<T>(
 
 /**
  * Modello categoria ricevuto dal server
- */
-/**
- * Modello categoria ricevuto dal server.
  */
 data class NetworkCategory(
     @SerializedName("_id") val id: String,
@@ -30,32 +24,28 @@ data class NetworkCategory(
 /**
  * Modello ingrediente base
  */
-/**
- * Modello ingrediente base.
- */
 data class NetworkIngredient(
+    @SerializedName("_id") val internalId: String = "",
     @SerializedName("idIngrediente") val id: String,
     @SerializedName("nome") val name: String,
-    @SerializedName("eliminabile") val isRemovable: String // "si" o "no"
+    @SerializedName("eliminabile") val isRemovable: String, // "si" o "no"
+    @SerializedName("qta") val qta: Int = 1,
+    @SerializedName("prezzo") val price: Double = 0.0
 )
 
 /**
  * Modello aggiunta extra
  */
-/**
- * Modello aggiunta extra.
- */
 data class NetworkExtra(
+    @SerializedName("_id") val internalId: String = "",
     @SerializedName("idIngrediente") val id: String,
     @SerializedName("nome") val name: String,
-    @SerializedName("prezzo") val price: Double
+    @SerializedName("prezzo") val price: Double,
+    @SerializedName("qta") val qta: Int = 1
 )
 
 /**
  * Modello opzione singola (formato o dimensione)
- */
-/**
- * Modello opzione singola (formato o dimensione).
  */
 data class NetworkOption(
     @SerializedName("valore") val name: String,
@@ -66,9 +56,6 @@ data class NetworkOption(
 /**
  * Modello attributo dinamico (es. FORMATO, DIMENSIONE)
  */
-/**
- * Modello attributo dinamico (es. FORMATO, DIMENSIONE).
- */
 data class NetworkAttribute(
     @SerializedName("_id") val id: String,
     @SerializedName("nome") val name: String,
@@ -76,10 +63,18 @@ data class NetworkAttribute(
 )
 
 /**
- * Modello prodotto ricevuto dal server
+ * Struttura specifica per gli attributi selezionati nell'invio dell'ordine
  */
+data class OrderSelectedAttribute(
+    @SerializedName("idAttributo") val attributeId: String,
+    @SerializedName("nomeAttributo") val attributeName: String,
+    @SerializedName("idValore") val valueId: String,
+    @SerializedName("nome") val valueName: String,
+    @SerializedName("prezzo") val price: Double
+)
+
 /**
- * Modello prodotto ricevuto dal server.
+ * Modello prodotto ricevuto dal server
  */
 data class NetworkProduct(
     @SerializedName("_id") val id: String,
