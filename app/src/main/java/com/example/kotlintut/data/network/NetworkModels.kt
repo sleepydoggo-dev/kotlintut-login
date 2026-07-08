@@ -85,7 +85,8 @@ data class NetworkProduct(
     @SerializedName("disponibile") val isAvailable: Boolean,
     @SerializedName("ingredienti") val ingredients: List<NetworkIngredient>?,
     @field:SerializedName("aggiunte") val extras: List<NetworkExtra>?,
-    @field:SerializedName("attributi") val attributes: List<NetworkAttribute>?
+    @field:SerializedName("attributi") val attributes: List<NetworkAttribute>?,
+    @SerializedName("iva") val iva: NetworkIva? = null
 )
 
 // --- MODELLI PER AUTENTICAZIONE RESTIVUS ---
@@ -132,4 +133,10 @@ data class LoginData(
 data class LoginResponse(
     @SerializedName("status") val status: String,
     @SerializedName("data") val data: LoginData
+)
+
+/** Modello per l'IVA associata a un prodotto */
+data class NetworkIva(
+    @com.google.gson.annotations.SerializedName("_id") val id: String,
+    @com.google.gson.annotations.SerializedName("aliquota") val aliquota: String
 )

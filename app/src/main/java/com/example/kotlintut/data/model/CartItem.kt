@@ -8,6 +8,7 @@ import com.google.gson.annotations.SerializedName
  * L'ordine dei campi riflette l'ordine richiesto dalle API per la serializzazione JSON.
  */
 data class CartItem(
+    @com.google.gson.annotations.SerializedName("iva") val iva: NetworkIva? = null,
     @SerializedName("quantita") val quantity: Int,
     @SerializedName("nome") val name: String,
     @SerializedName("prezzo") val price: Double,

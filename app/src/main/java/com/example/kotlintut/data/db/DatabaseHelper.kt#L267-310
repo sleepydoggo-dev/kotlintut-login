@@ -1,0 +1,12 @@
+// This is a reference to the updated upsertProducts method which now saves IVA
+fun upsertProducts(networkList: List<NetworkProduct>, requestedCategoryId: String) {
+    // ...
+    networkList.forEach { prod ->
+        val values = ContentValues().apply {
+            // ...
+            put(COLUMN_PROD_IVA, gson.toJson(prod.iva))
+        }
+        db.insertWithOnConflict(TABLE_PRODUCTS, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+        // ...
+    }
+}

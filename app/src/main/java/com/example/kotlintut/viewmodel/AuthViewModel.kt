@@ -38,54 +38,69 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         // Inizializza il RetrofitClient con il contesto per l'interceptor
         RetrofitClient.init(application)
         
+        // Rimuovi dati "mock" residui se presenti
+        val savedUserId = prefs.getString("USER_ID", "") ?: ""
+        if (savedUserId.startsWith("mock_")) {
+            prefs.edit().clear().apply()
+            android.util.Log.d("AuthViewModel", "Dati mock rilevati e rimossi")
+        }
+        
         // Auto-login rimosso come richiesto. 
         // L'utente deve loggarsi manualmente ogni volta.
     }
 
     /**
-     * Effettua il login simulato loggando il JSON su Logcat.
+     * Effettua il login reale tramite API Restivus.
      */
     fun login(username: String, pass: String) {
         _uiState.update { it.copy(isLoading = true, error = null) }
         viewModelScope.launch {
             try {
-                val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
-                val request = LoginRequest(username, pass)
-                val json = gson.toJson(request)
+                val response = api.loginUser(LoginRequest(username, pass))
                 
-                android.util.Log.d("AUTH_MOCK_LOG", "Login JSON Request:\n$json")
-                
-                // Simulazione di una risposta positiva per testare la UI
-                kotlinx.coroutines.delay(1000)
-                
-                val mockUserId = "mock_user_id_123"
-                val mockToken = "mock_auth_token_456"
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    if (body != null && body.status == "success") {
+                        val data = body.data
+                        
+                        android.util.Log.d("AUTH_API_LOG", "Login Success!")
+                        android.util.Log.d("AUTH_API_LOG", "AuthToken: ${data.authToken}")
+                        android.util.Log.d("AUTH_API_LOG", "UserId: ${data.userId}")
+                        
+                        // Salva i token reali nelle SharedPreferences
+                        prefs.edit().apply {
+                            putString("AUTH_TOKEN", data.authToken)
+                            putString("USER_ID", data.userId)
+                            putString("LOGGED_USERNAME", username)
+                            apply()
+                        }
 
-                prefs.edit().apply {
-                    putString("AUTH_TOKEN", mockToken)
-                    putString("USER_ID", mockUserId)
-                    putString("LOGGED_USERNAME", username)
-                    apply()
-                }
-
-                _uiState.update { 
-                    it.copy(
-                        loggedUser = username,
-                        userId = mockUserId,
-                        isLoading = false,
-                        isLoginSuccessful = true
-                    ) 
+                        _uiState.update { 
+                            it.copy(
+                                loggedUser = username,
+                                userId = data.userId,
+                                isLoading = false,
+                                isLoginSuccessful = true
+                            ) 
+                        }
+                    } else {
+                        android.util.Log.e("AUTH_API_LOG", "Login Body Error: ${body?.status}")
+                        _uiState.update { it.copy(isLoading = false, error = "Login fallito") }
+                    }
+                } else {
+                    val errorBody = response.errorBody()?.string()
+                    android.util.Log.e("AUTH_API_LOG", "Login HTTP Error ${response.code()}: $errorBody")
+                    _uiState.update { it.copy(isLoading = false, error = "Errore server (${response.code()})") }
                 }
             } catch (e: Exception) {
-                android.util.Log.e("AuthViewModel", "Login error", e)
-                _uiState.update { it.copy(isLoading = false, error = "Errore: ${e.message}") }
+                android.util.Log.e("AUTH_API_LOG", "Login Network Error", e)
+                _uiState.update { it.copy(isLoading = false, error = "Errore di rete: ${e.message}") }
             }
         }
     }
 
     /**
-     * Registra un nuovo utente simulato loggando il JSON su Logcat.
-     * Accetta fullName che viene diviso in firstName e lastName.
+     * Registra un nuovo utente reale tramite API Restivus.
      */
     fun register(username: String, email: String, pass: String, fullName: String) {
         _uiState.update { it.copy(isLoading = true, error = null) }
@@ -99,19 +114,31 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 val profile = RegistrationProfile(firstName, lastName)
                 val request = RegistrationRequest(email, username, pass, profile)
                 
-                val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
-                val json = gson.toJson(request)
-                
-                android.util.Log.d("AUTH_MOCK_LOG", "Registration JSON Request:\n$json")
+                // Log del JSON di richiesta per debug
+                val requestJson = com.google.gson.Gson().toJson(request)
+                android.util.Log.d("AUTH_API_LOG", "Registration Request JSON:\n$requestJson")
 
-                // Simulazione di una risposta positiva per testare la UI
-                kotlinx.coroutines.delay(1000)
-                
-                // Dopo la registrazione simulata, eseguiamo il login simulato
-                login(username, pass)
+                val response = api.registerUser(request)
+
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    if (body != null && body.status == "success") {
+                        android.util.Log.d("AUTH_API_LOG", "Registration Success: ${body.data.id}")
+                        // Registrazione riuscita, procedi al login automatico reale
+                        login(username, pass)
+                    } else {
+                        val msg = body?.status ?: "Unknown body error"
+                        android.util.Log.e("AUTH_API_LOG", "Registration Body Error: $msg")
+                        _uiState.update { it.copy(isLoading = false, error = "Registrazione fallita: $msg") }
+                    }
+                } else {
+                    val errorBody = response.errorBody()?.string()
+                    android.util.Log.e("AUTH_API_LOG", "Registration HTTP Error ${response.code()}: $errorBody")
+                    _uiState.update { it.copy(isLoading = false, error = "Errore registrazione ${response.code()}: $errorBody") }
+                }
             } catch (e: Exception) {
-                android.util.Log.e("AuthViewModel", "Registration error", e)
-                _uiState.update { it.copy(isLoading = false, error = "Errore: ${e.message}") }
+                android.util.Log.e("AUTH_API_LOG", "Registration Network Error", e)
+                _uiState.update { it.copy(isLoading = false, error = "Errore di rete: ${e.message}") }
             }
         }
     }

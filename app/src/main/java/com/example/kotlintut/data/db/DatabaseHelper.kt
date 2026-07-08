@@ -16,7 +16,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
 
     companion object {
         private const val DATABASE_NAME = "RistoranteTotem_Compose.db"
-        private const val DATABASE_VERSION = 10
+        private const val DATABASE_VERSION = 11
 
         const val TABLE_USERS = "utenti"
         const val COLUMN_USER_ID = "id"
@@ -43,6 +43,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         const val COLUMN_PROD_IMG_URL = "immagine_url"
         const val COLUMN_PROD_AVAILABLE = "disponibile"
         const val COLUMN_PROD_ATTRIBUTES = "attributi"
+        const val COLUMN_PROD_IVA = "iva"
 
         const val TABLE_CART = "carrello_salvato"
         const val COLUMN_CART_ID = "id"
@@ -135,7 +136,8 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                 $COLUMN_PROD_CAT TEXT,
                 $COLUMN_PROD_IMG_URL TEXT,
                 $COLUMN_PROD_AVAILABLE INTEGER,
-                $COLUMN_PROD_ATTRIBUTES TEXT
+                $COLUMN_PROD_ATTRIBUTES TEXT,
+                $COLUMN_PROD_IVA TEXT
             )
         """.trimIndent())
 
@@ -217,18 +219,15 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         // Rimosso insertInitialProducts(db) per pulizia dati mock
     }
 
-    /** Gestisce l'aggiornamento del database eliminando le vecchie tabelle e ricreandole. */
+    /** Gestisce l'aggiornamento del database. */
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_USERS")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_CATEGORIES")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_PRODUCTS")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_CART")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_ORDERS")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_ORDER_ITEMS")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_FAVORITES")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_INGREDIENTS")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_EXTRAS")
-        onCreate(db)
+        if (oldVersion < 11) {
+            try {
+                db.execSQL("ALTER TABLE $TABLE_PRODUCTS ADD COLUMN $COLUMN_PROD_IVA TEXT")
+            } catch (e: Exception) {
+                android.util.Log.w("DatabaseHelper", "Aggiunta colonna IVA fallita o colonna già presente")
+            }
+        }
     }
 
     // --- METODI PER UPSERT (OFFLINE-FIRST) ---
@@ -278,6 +277,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                     put(COLUMN_PROD_IMG_URL, prod.imageUrl)
                     put(COLUMN_PROD_AVAILABLE, if (prod.isAvailable) 1 else 0)
                     put(COLUMN_PROD_ATTRIBUTES, gson.toJson(prod.attributes))
+                    put(COLUMN_PROD_IVA, gson.toJson(prod.iva))
                 }
                 db.insertWithOnConflict(TABLE_PRODUCTS, null, values, SQLiteDatabase.CONFLICT_REPLACE)
 
@@ -360,6 +360,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         val db = readableDatabase
         val gson = Gson()
         val attributeType = object : TypeToken<List<com.example.kotlintut.data.network.NetworkAttribute>>() {}.type
+        val ivaType = object : TypeToken<com.example.kotlintut.data.network.NetworkIva>() {}.type
         
         db.query(TABLE_PRODUCTS, null, "$COLUMN_PROD_CAT=?", arrayOf(category), null, null, null).use { cursor ->
             if (cursor.moveToFirst()) {
@@ -371,9 +372,24 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                     val imgUrl = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_IMG_URL)) ?: ""
                     
                     val attrJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_ATTRIBUTES))
-                    val attributes: List<com.example.kotlintut.data.network.NetworkAttribute> = gson.fromJson(attrJson, attributeType) ?: emptyList()
+                    val attributes: List<com.example.kotlintut.data.network.NetworkAttribute> = try {
+                        if (!attrJson.isNullOrBlank()) {
+                            gson.fromJson(attrJson, attributeType) ?: emptyList()
+                        } else emptyList()
+                    } catch (e: Exception) {
+                        emptyList()
+                    }
+                    
+                    val ivaJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_IVA))
+                    val iva: com.example.kotlintut.data.network.NetworkIva? = try {
+                        if (!ivaJson.isNullOrBlank()) {
+                            gson.fromJson(ivaJson, ivaType)
+                        } else null
+                    } catch (e: Exception) {
+                        null
+                    }
 
-                    list.add(Product(remoteId, name, price, desc, imgUrl, category, attributes))
+                    list.add(Product(remoteId, name, price, desc, imgUrl, category, attributes, iva))
                 } while (cursor.moveToNext())
             }
         }

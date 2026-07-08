@@ -91,6 +91,7 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
             currentItems[existingIndex] = existingItem.copy(quantity = existingItem.quantity + quantity)
         } else {
             currentItems.add(CartItem(
+                iva = product.iva,
                 id = product.id,
                 name = product.name,
                 price = product.price,
@@ -227,28 +228,48 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Simula l'invio di un ordine in modalità Chiosco, generando un payload JSON e svuotando il carrello. */
     fun inviaOrdineMock(segnaposto: String): String {
         val currentState = _uiState.value
         val userId = prefs.getString("USER_ID", null)
-        val payload = OrderPayload(
-            userId = userId,
+        
+        android.util.Log.d("TOTEM_API_TEST", "Recuperato USER_ID per ordine: $userId")
+        
+        // Helper per arrotondare a 2 decimali
+        fun round(value: Double): Double = String.format(java.util.Locale.US, "%.2f", value).toDouble()
+        
+        // Calcolo reale dell'IVA basato sui prodotti nel carrello, arrotondato a 2 decimali
+        val ivaTotaleRaw = currentState.items.sumOf { item ->
+            val aliquota = item.iva?.aliquota?.toDoubleOrNull() ?: 10.0 // Default 10% se non presente
+            val prezzoTotaleItem = item.getTotalPrice()
+            prezzoTotaleItem * (aliquota / 100.0)
+        }
+        val ivaTotale = round(ivaTotaleRaw)
+        
+        val payload = com.example.kotlintut.data.network.OrderPayload(
+            idUser = userId,
             prodotti = currentState.items,
-            food = currentState.items, // Per ora consideriamo tutto food come nell'esempio
+            totaleNonScontato = round(currentState.total),
+            ivaTotale = ivaTotale,
+            totale = round(currentState.total),
             numeroSegnaPosto = segnaposto,
-            totale = currentState.total,
-            totaleNonScontato = currentState.total
+            food = currentState.items,
+            bevande = emptyList()
         )
         
-        // Serializzatore personalizzato per garantire l'ordine esatto delle chiavi JSON richiesto dalle API
-        val orderSerializer = com.google.gson.JsonSerializer<OrderPayload> { src, _, context ->
+        val orderSerializer = com.google.gson.JsonSerializer<com.example.kotlintut.data.network.OrderPayload> { src, _, context ->
             val jsonObject = com.google.gson.JsonObject()
-            jsonObject.addProperty("userId", src.userId)
+            jsonObject.addProperty("idUser", src.idUser)
+            jsonObject.add("vouchers", context.serialize(src.vouchers))
             jsonObject.add("prodotti", context.serialize(src.prodotti))
+            jsonObject.addProperty("scontoCarrelloVoucher", src.scontoCarrelloVoucher)
+            jsonObject.addProperty("scontoDaApplicare", src.scontoDaApplicare)
             jsonObject.addProperty("totaleNonScontato", src.totaleNonScontato)
+            jsonObject.addProperty("iva", src.ivaTotale)
             jsonObject.addProperty("totale", src.totale)
             jsonObject.addProperty("pagamento", src.pagamento)
             jsonObject.addProperty("origine", src.origine)
+            jsonObject.addProperty("consegna", src.consegna)
+            jsonObject.addProperty("priorita", src.priorita)
             jsonObject.addProperty("numeroSegnaPosto", src.numeroSegnaPosto)
             jsonObject.addProperty("stato", src.stato)
             jsonObject.add("bevande", context.serialize(src.bevande))
@@ -257,34 +278,40 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         val gson = com.google.gson.GsonBuilder()
-            .registerTypeAdapter(OrderPayload::class.java, orderSerializer)
+            .registerTypeAdapter(com.example.kotlintut.data.network.OrderPayload::class.java, orderSerializer)
             .setPrettyPrinting()
             .create()
 
         val jsonPayload = gson.toJson(payload)
         
-        android.util.Log.d("TOTEM_API_TEST", "POST https://dolcemare.solteconline.it/api/v1/inserisciOrdine")
+        android.util.Log.d("TOTEM_API_TEST", "=== INVIO ORDINE AL SERVER ===")
         android.util.Log.d("TOTEM_API_TEST", "Payload: $jsonPayload")
         
-        // Esegue la chiamata API reale
+        // Esegue la chiamata API reale al server
         val apiService = com.example.kotlintut.data.network.RetrofitClient.createService(gson)
         viewModelScope.launch {
             try {
                 val response = apiService.sendOrder(payload)
                 if (response.isSuccessful) {
-                    android.util.Log.d("TOTEM_API_TEST", "Ordine inviato con successo")
+                    android.util.Log.d("TOTEM_API_TEST", "Ordine inviato con successo!")
                 } else {
-                    android.util.Log.e("TOTEM_API_TEST", "Errore invio ordine: ${response.code()}")
+                    val errorCode = response.code()
+                    val errorMsg = response.errorBody()?.string()
+                    android.util.Log.e("TOTEM_API_TEST", "Errore invio ordine ($errorCode): $errorMsg")
+                    if (errorCode == 401) {
+                        android.util.Log.e("TOTEM_API_TEST", "ERRORE 401: Sessione non valida o scaduta.")
+                    }
                 }
             } catch (e: Exception) {
-                android.util.Log.e("TOTEM_API_TEST", "Errore di rete invio ordine", e)
+                android.util.Log.e("TOTEM_API_TEST", "Errore di rete durante l'invio dell'ordine", e)
             }
         }
         
-        // Svuota il carrello
         _uiState.update { it.copy(items = emptyList()) }
         
-        // Restituisce un numero d'ordine casuale (mantenuto per compatibilità UI)
+        // Se vuoi forzare il logout dopo l'ordine per testare il login manuale ogni volta
+        // prefs.edit().clear().apply() 
+
         return (1..999).random().toString()
     }
 }

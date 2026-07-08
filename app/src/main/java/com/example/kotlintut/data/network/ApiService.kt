@@ -22,9 +22,9 @@ interface ApiService {
 
     /** Registra un nuovo utente. */
     @POST("users")
-    suspend fun registerUser(@Body request: RegistrationRequest): RegistrationResponse
+    suspend fun registerUser(@Body request: RegistrationRequest): retrofit2.Response<RegistrationResponse>
 
     /** Effettua il login dell'utente. */
     @POST("login")
-    suspend fun loginUser(@Body request: LoginRequest): LoginResponse
+    suspend fun loginUser(@Body request: LoginRequest): retrofit2.Response<LoginResponse>
 }

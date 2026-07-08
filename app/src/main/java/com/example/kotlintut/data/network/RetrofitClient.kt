@@ -23,16 +23,19 @@ object RetrofitClient {
 
     private val authInterceptor = Interceptor { chain ->
         val original = chain.request()
+        val path = original.url.encodedPath
         val builder = original.newBuilder()
 
-        // Se le preferenze sono state inizializzate, leggiamo i token
-        if (::prefs.isInitialized) {
-            val token = prefs.getString("AUTH_TOKEN", null)
-            val userId = prefs.getString("USER_ID", null)
+        // Non aggiungiamo header di auth per login e registrazione
+        if (!path.contains("/login") && !path.contains("/users")) {
+            if (::prefs.isInitialized) {
+                val token = prefs.getString("AUTH_TOKEN", null)
+                val userId = prefs.getString("USER_ID", null)
 
-            if (!token.isNullOrBlank() && !userId.isNullOrBlank()) {
-                builder.addHeader("xauthtoken", token)
-                builder.addHeader("userid", userId)
+                if (!token.isNullOrBlank() && !userId.isNullOrBlank()) {
+                    builder.addHeader("X-Auth-Token", token)
+                    builder.addHeader("X-User-Id", userId)
+                }
             }
         }
 
