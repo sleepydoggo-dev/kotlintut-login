@@ -257,15 +257,30 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
             .setPrettyPrinting()
             .create()
 
-        val jsonPayload = gson.toJson(listOf(payload))
+        val jsonPayload = gson.toJson(payload)
         
-        android.util.Log.d("TOTEM_API_TEST", "POST https://dolcemare.solteconline.it/api/v1/inserisciOrdine")
+        android.util.Log.d("TOTEM_API_TEST", "POST https://dolcemare.solteconline.it/api/v1/ordine")
         android.util.Log.d("TOTEM_API_TEST", "Payload: $jsonPayload")
+        
+        // Esegue la chiamata API reale
+        val apiService = com.example.kotlintut.data.network.RetrofitClient.createService(gson)
+        viewModelScope.launch {
+            try {
+                val response = apiService.sendOrder(payload)
+                if (response.isSuccessful) {
+                    android.util.Log.d("TOTEM_API_TEST", "Ordine inviato con successo")
+                } else {
+                    android.util.Log.e("TOTEM_API_TEST", "Errore invio ordine: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("TOTEM_API_TEST", "Errore di rete invio ordine", e)
+            }
+        }
         
         // Svuota il carrello
         _uiState.update { it.copy(items = emptyList()) }
         
-        // Restituisce un numero d'ordine casuale
+        // Restituisce un numero d'ordine casuale (mantenuto per compatibilità UI)
         return (1..999).random().toString()
     }
 }

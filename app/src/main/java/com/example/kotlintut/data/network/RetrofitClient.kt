@@ -25,4 +25,14 @@ object RetrofitClient {
             .build()
             .create(ApiService::class.java)
     }
+
+    /** Crea un'istanza di ApiService con un Gson personalizzato. */
+    fun createService(gson: com.google.gson.Gson): ApiService {
+        return Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create(gson))
+            .build()
+            .create(ApiService::class.java)
+    }
 }

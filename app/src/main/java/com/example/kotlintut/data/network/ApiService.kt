@@ -15,4 +15,8 @@ interface ApiService {
     /** Invia una richiesta POST con filtri specifici per ottenere la lista dei prodotti dal server. */
     @POST("prodotti")
     suspend fun getProducts(@Body filter: Map<String, String>): ApiResponse<NetworkProduct>
+
+    /** Invia un nuovo ordine al server. */
+    @POST("ordine")
+    suspend fun sendOrder(@Body payload: OrderPayload): retrofit2.Response<Unit>
 }
