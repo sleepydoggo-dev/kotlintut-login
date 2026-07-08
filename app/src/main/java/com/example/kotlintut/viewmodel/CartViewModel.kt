@@ -40,6 +40,7 @@ data class CartUiState(
 
 class CartViewModel(application: Application) : AndroidViewModel(application) {
     private val dbHelper = DatabaseHelper(application)
+    private val prefs = application.getSharedPreferences("TOTEM_PREFS", android.content.Context.MODE_PRIVATE)
 
     private val _uiState = MutableStateFlow(CartUiState())
     val uiState: StateFlow<CartUiState> = _uiState.asStateFlow()
@@ -229,7 +230,9 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
     /** Simula l'invio di un ordine in modalità Chiosco, generando un payload JSON e svuotando il carrello. */
     fun inviaOrdineMock(segnaposto: String): String {
         val currentState = _uiState.value
+        val userId = prefs.getString("USER_ID", null)
         val payload = OrderPayload(
+            userId = userId,
             prodotti = currentState.items,
             food = currentState.items, // Per ora consideriamo tutto food come nell'esempio
             numeroSegnaPosto = segnaposto,
@@ -240,6 +243,7 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
         // Serializzatore personalizzato per garantire l'ordine esatto delle chiavi JSON richiesto dalle API
         val orderSerializer = com.google.gson.JsonSerializer<OrderPayload> { src, _, context ->
             val jsonObject = com.google.gson.JsonObject()
+            jsonObject.addProperty("userId", src.userId)
             jsonObject.add("prodotti", context.serialize(src.prodotti))
             jsonObject.addProperty("totaleNonScontato", src.totaleNonScontato)
             jsonObject.addProperty("totale", src.totale)
@@ -259,7 +263,7 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
 
         val jsonPayload = gson.toJson(payload)
         
-        android.util.Log.d("TOTEM_API_TEST", "POST https://dolcemare.solteconline.it/api/v1/ordine")
+        android.util.Log.d("TOTEM_API_TEST", "POST https://dolcemare.solteconline.it/api/v1/inserisciOrdine")
         android.util.Log.d("TOTEM_API_TEST", "Payload: $jsonPayload")
         
         // Esegue la chiamata API reale

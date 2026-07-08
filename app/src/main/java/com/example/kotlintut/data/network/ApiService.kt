@@ -17,6 +17,14 @@ interface ApiService {
     suspend fun getProducts(@Body filter: Map<String, String>): ApiResponse<NetworkProduct>
 
     /** Invia un nuovo ordine al server. */
-    @POST("ordine")
+    @POST("inserisciOrdine")
     suspend fun sendOrder(@Body payload: OrderPayload): retrofit2.Response<Unit>
+
+    /** Registra un nuovo utente. */
+    @POST("users")
+    suspend fun registerUser(@Body request: RegistrationRequest): RegistrationResponse
+
+    /** Effettua il login dell'utente. */
+    @POST("login")
+    suspend fun loginUser(@Body request: LoginRequest): LoginResponse
 }

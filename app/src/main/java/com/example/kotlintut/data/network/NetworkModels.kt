@@ -84,6 +84,52 @@ data class NetworkProduct(
     @SerializedName("immagine") val imageUrl: String,
     @SerializedName("disponibile") val isAvailable: Boolean,
     @SerializedName("ingredienti") val ingredients: List<NetworkIngredient>?,
-    @SerializedName("aggiunte") val extras: List<NetworkExtra>?,
-    @SerializedName("attributi") val attributes: List<NetworkAttribute>?
+    @field:SerializedName("aggiunte") val extras: List<NetworkExtra>?,
+    @field:SerializedName("attributi") val attributes: List<NetworkAttribute>?
+)
+
+// --- MODELLI PER AUTENTICAZIONE RESTIVUS ---
+
+/** Dati del profilo utente */
+data class RegistrationProfile(
+    @SerializedName("firstName") val firstName: String,
+    @SerializedName("lastName") val lastName: String
+)
+
+/** Richiesta di registrazione */
+data class RegistrationRequest(
+    @SerializedName("email") val email: String,
+    @SerializedName("username") val username: String,
+    @SerializedName("password") val password: String,
+    @SerializedName("profile") val profile: RegistrationProfile
+)
+
+/** Dati restituiti dopo la registrazione */
+data class RegistrationData(
+    @SerializedName("_id") val id: String,
+    @SerializedName("profile") val profile: RegistrationProfile
+)
+
+/** Risposta alla registrazione */
+data class RegistrationResponse(
+    @SerializedName("status") val status: String,
+    @SerializedName("data") val data: RegistrationData
+)
+
+/** Richiesta di login */
+data class LoginRequest(
+    @SerializedName("username") val username: String,
+    @SerializedName("password") val password: String
+)
+
+/** Dati restituiti dopo il login */
+data class LoginData(
+    @SerializedName("authToken") val authToken: String,
+    @SerializedName("userId") val userId: String
+)
+
+/** Risposta al login */
+data class LoginResponse(
+    @SerializedName("status") val status: String,
+    @SerializedName("data") val data: LoginData
 )

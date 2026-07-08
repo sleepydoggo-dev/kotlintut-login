@@ -7,6 +7,7 @@ import com.google.gson.annotations.SerializedName
  * Rappresenta il payload JSON per l'invio di un ordine in modalità Chiosco.
  */
 data class OrderPayload(
+    @SerializedName("userId") val userId: String?,
     @SerializedName("prodotti") val prodotti: List<CartItem>,
     @SerializedName("totaleNonScontato") val totaleNonScontato: Double,
     @SerializedName("totale") val totale: Double,

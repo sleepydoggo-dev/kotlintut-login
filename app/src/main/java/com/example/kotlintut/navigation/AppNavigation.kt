@@ -112,7 +112,6 @@ fun AppNavigation(
                     }
                 }
 
-                /* Rimosso Login/Registrazione per modalità Chiosco
                 if (authState.loggedUser == null) {
                     DrawerItem(appState.getString("login_register"), Icons.Default.Login, false) {
                         scope.launch { drawerState.close() }
@@ -124,18 +123,17 @@ fun AppNavigation(
                         scope.launch { drawerState.close() }
                         authViewModel.logout()
                         cartViewModel.clearCart(null)
-                        navController.navigate(Screen.Categories.route) {
+                        navController.navigate(Screen.AuthGateway.route) {
                             popUpTo(Screen.Categories.route) { inclusive = true }
                         }
                     }
                 }
-                */
             }
         }
     ) {
         NavHost(
             navController = navController,
-            startDestination = Screen.Categories.route,
+            startDestination = Screen.AuthGateway.route,
             enterTransition = { 
                 slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(400)) + fadeIn(animationSpec = tween(400)) 
             },
@@ -154,7 +152,11 @@ fun AppNavigation(
                     language = appState.language,
                     onLoginClick = { navController.navigate(Screen.Login.route) },
                     onRegisterClick = { navController.navigate(Screen.Register.route) },
-                    onCancelClick = { navController.popBackStack() }
+                    onCancelClick = { 
+                        navController.navigate(Screen.Categories.route) {
+                            popUpTo(Screen.AuthGateway.route) { inclusive = true }
+                        }
+                    }
                 )
             }
             composable(Screen.Login.route) {
