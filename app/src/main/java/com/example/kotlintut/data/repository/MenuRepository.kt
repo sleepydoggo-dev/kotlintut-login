@@ -23,9 +23,6 @@ class MenuRepository(
         emit(local)
 
         try {
-            // Log del payload per debug/Postman (POST senza body)
-            android.util.Log.d("MENU_API_LOG", "=== CATEGORIES REQUEST PAYLOAD ===\n{} (Empty Body)")
-
             // 2. Chiamata POST al server
             val response = api.getCategories()
             if (response.success) {
@@ -53,25 +50,20 @@ class MenuRepository(
         emit(local)
 
         try {
-            val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
-
             // Tentativo 1: Chiave "categorie" (Plurale, standard per questa API)
-            val filter1 = mapOf("categorie" to categoryId)
-            android.util.Log.d("MENU_API_LOG", "=== PRODUCTS REQUEST (Attempt 1: 'categorie') ===\n${gson.toJson(filter1)}")
-            var response = api.getProducts(filter1)
+            android.util.Log.d("MenuRepository", "Fetching products (Attempt 1: 'categorie') for: $categoryId")
+            var response = api.getProducts(mapOf("categorie" to categoryId))
             
             // Tentativo 2: Fallback su "categoria" (Singolare)
             if (!response.success || response.data?.isEmpty() == true) {
-                val filter2 = mapOf("categoria" to categoryId)
-                android.util.Log.d("MENU_API_LOG", "=== PRODUCTS REQUEST (Attempt 2: 'categoria') ===\n${gson.toJson(filter2)}")
-                response = api.getProducts(filter2)
+                android.util.Log.w("MenuRepository", "No products with 'categorie', trying 'categoria'...")
+                response = api.getProducts(mapOf("categoria" to categoryId))
             }
 
             // Tentativo 3: Fallback su "categoria_id"
             if (!response.success || response.data?.isEmpty() == true) {
-                val filter3 = mapOf("categoria_id" to categoryId)
-                android.util.Log.d("MENU_API_LOG", "=== PRODUCTS REQUEST (Attempt 3: 'categoria_id') ===\n${gson.toJson(filter3)}")
-                response = api.getProducts(filter3)
+                android.util.Log.w("MenuRepository", "No products with 'categoria', trying 'categoria_id'...")
+                response = api.getProducts(mapOf("categoria_id" to categoryId))
             }
 
             if (response.success) {

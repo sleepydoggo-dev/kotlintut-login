@@ -32,7 +32,9 @@ data class CartUiState(
     val cardExpiry: String = "",
     val cardCvv: String = "",
     val isLoading: Boolean = false,
-    val isOrderConfirmed: Boolean = false
+    val isOrderConfirmed: Boolean = false,
+    val orderConfirmationNumber: String? = null,
+    val orderError: String? = null
 ) {
     val total: Double get() = items.sumOf { it.getTotalPrice() }
     val itemCount: Int get() = items.sumOf { it.quantity }
@@ -228,25 +230,28 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun inviaOrdineMock(segnaposto: String): String {
+    fun sendOrderToServer(segnaposto: String) {
         val currentState = _uiState.value
         val userId = prefs.getString("USER_ID", null)
-        
-        android.util.Log.d("TOTEM_API_TEST", "Recuperato USER_ID per ordine: $userId")
-        
+        val authToken = prefs.getString("AUTH_TOKEN", null)
+
+        android.util.Log.d("TOTEM_API", "Invio ordine per userId: $userId (Auth: ${authToken != null})")
+
+        _uiState.update { it.copy(isLoading = true, orderError = null) }
+
         // Helper per arrotondare a 2 decimali
         fun round(value: Double): Double = String.format(java.util.Locale.US, "%.2f", value).toDouble()
-        
-        // Calcolo reale dell'IVA basato sui prodotti nel carrello, arrotondato a 2 decimali
+
+        // Calcolo reale dell'IVA basato sui prodotti nel carrello
         val ivaTotaleRaw = currentState.items.sumOf { item ->
-            val aliquota = item.iva?.aliquota?.toDoubleOrNull() ?: 10.0 // Default 10% se non presente
+            val aliquota = item.iva?.aliquota?.toDoubleOrNull() ?: 10.0
             val prezzoTotaleItem = item.getTotalPrice()
             prezzoTotaleItem * (aliquota / 100.0)
         }
         val ivaTotale = round(ivaTotaleRaw)
-        
+
         val (bevande, food) = currentState.items.partition { it.bevanda }
-        
+
         val payload = com.example.kotlintut.data.network.OrderPayload(
             idUser = userId,
             prodotti = currentState.items,
@@ -257,7 +262,31 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
             food = food,
             bevande = bevande
         )
-        
+
+        val cartItemSerializer = com.google.gson.JsonSerializer<com.example.kotlintut.data.model.CartItem> { src, _, context ->
+            val jsonObject = com.google.gson.JsonObject()
+            val extrasPrice = src.addedExtras.sumOf { it.price ?: 0.0 } + src.orderAttributes.sumOf { it.price }
+            val priceWithExtras = src.price + extrasPrice
+            
+            jsonObject.add("iva", context.serialize(src.iva))
+            jsonObject.addProperty("quantita", src.quantity)
+            jsonObject.addProperty("nome", src.name)
+            jsonObject.addProperty("prezzo", priceWithExtras)
+            jsonObject.add("categorie", context.serialize(src.categorie))
+            jsonObject.addProperty("categoriaOrigine", src.categoriaOrigine)
+            jsonObject.add("ingredienti", context.serialize(src.ingredients))
+            jsonObject.add("ingredientiRimossi", context.serialize(src.removedIngredients))
+            jsonObject.add("aggiunte", context.serialize(src.addedExtras))
+            jsonObject.add("attributi", context.serialize(src.orderAttributes))
+            jsonObject.addProperty("bevanda", src.bevanda)
+            jsonObject.addProperty("_id", src.elementId)
+            jsonObject.addProperty("idProdotto", src.id)
+            jsonObject.addProperty("prezzoUnitario", priceWithExtras)
+            jsonObject.addProperty("sconto", src.sconto)
+            jsonObject.addProperty("daPagare", priceWithExtras)
+            jsonObject
+        }
+
         val orderSerializer = com.google.gson.JsonSerializer<com.example.kotlintut.data.network.OrderPayload> { src, _, context ->
             val jsonObject = com.google.gson.JsonObject()
             jsonObject.addProperty("idUser", src.idUser)
@@ -280,41 +309,40 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         val gson = com.google.gson.GsonBuilder()
+            .registerTypeAdapter(com.example.kotlintut.data.model.CartItem::class.java, cartItemSerializer)
             .registerTypeAdapter(com.example.kotlintut.data.network.OrderPayload::class.java, orderSerializer)
-            .setPrettyPrinting()
             .create()
 
-        val jsonPayload = gson.toJson(payload)
-        
-        android.util.Log.d("TOTEM_API_TEST", "=== MOCK: INVIO ORDINE AL SERVER (DISABILITATO) ===")
-        android.util.Log.d("TOTEM_API_TEST", "Payload che sarebbe stato inviato:\n$jsonPayload")
-        
-        /* MOCK: Chiamata reale disabilitata per isolamento
         val apiService = com.example.kotlintut.data.network.RetrofitClient.createService(gson)
+
         viewModelScope.launch {
             try {
                 val response = apiService.sendOrder(payload)
                 if (response.isSuccessful) {
-                    android.util.Log.d("TOTEM_API_TEST", "Ordine inviato con successo!")
-                } else {
-                    val errorCode = response.code()
-                    val errorMsg = response.errorBody()?.string()
-                    android.util.Log.e("TOTEM_API_TEST", "Errore invio ordine ($errorCode): $errorMsg")
-                    if (errorCode == 401) {
-                        android.util.Log.e("TOTEM_API_TEST", "ERRORE 401: Sessione non valida o scaduta.")
+                    val orderNum = (1..999).random().toString()
+                    android.util.Log.d("TOTEM_API", "Ordine inviato con successo! Numero: #$orderNum")
+                    
+                    // Salviamo l'ordine nel DB locale prima di svuotare
+                    dbHelper.saveOrder(userId ?: "GUEST", currentState.total, currentState.items)
+                    dbHelper.saveCart(userId ?: "GUEST", emptyList())
+
+                    _uiState.update { 
+                        it.copy(
+                            items = emptyList(),
+                            isLoading = false,
+                            isOrderConfirmed = true,
+                            orderConfirmationNumber = orderNum
+                        ) 
                     }
+                } else {
+                    val errorMsg = response.errorBody()?.string() ?: "Errore sconosciuto"
+                    android.util.Log.e("TOTEM_API", "Errore invio ordine (${response.code()}): $errorMsg")
+                    _uiState.update { it.copy(isLoading = false, orderError = "Errore server (${response.code()})") }
                 }
             } catch (e: Exception) {
-                android.util.Log.e("TOTEM_API_TEST", "Errore di rete durante l'invio dell'ordine", e)
+                android.util.Log.e("TOTEM_API", "Errore di rete durante l'invio dell'ordine", e)
+                _uiState.update { it.copy(isLoading = false, orderError = "Errore di rete: ${e.message}") }
             }
         }
-        */
-        
-        _uiState.update { it.copy(items = emptyList()) }
-        
-        // Se vuoi forzare il logout dopo l'ordine per testare il login manuale ogni volta
-        // prefs.edit().clear().apply() 
-
-        return (1..999).random().toString()
     }
 }

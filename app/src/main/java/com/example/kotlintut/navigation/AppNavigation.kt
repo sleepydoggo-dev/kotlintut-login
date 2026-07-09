@@ -354,10 +354,14 @@ fun AppNavigation(
             }
             composable(Screen.Segnaposto.route) {
                 SegnapostoScreen(
+                    isLoading = cartState.isLoading,
+                    confirmationNumber = cartState.orderConfirmationNumber,
+                    error = cartState.orderError,
                     onConfirm = { segnaposto ->
-                        cartViewModel.inviaOrdineMock(segnaposto)
+                        cartViewModel.sendOrderToServer(segnaposto)
                     },
                     onBackToHome = {
+                        cartViewModel.resetOrderConfirmation()
                         navController.navigate(Screen.Categories.route) {
                             popUpTo(Screen.Categories.route) { inclusive = true }
                         }

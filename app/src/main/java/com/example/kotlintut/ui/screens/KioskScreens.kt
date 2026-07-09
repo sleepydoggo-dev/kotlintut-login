@@ -17,12 +17,14 @@ import com.example.kotlintut.ui.components.TotemTopBar
  */
 @Composable
 fun SegnapostoScreen(
-    onConfirm: (String) -> String,
+    isLoading: Boolean,
+    confirmationNumber: String?,
+    error: String?,
+    onConfirm: (String) -> Unit,
     onBackToHome: () -> Unit
 ) {
     var segnaposto by remember { mutableStateOf("") }
-    var orderNumber by remember { mutableStateOf<String?>(null) }
-    var isConfirmed by remember { mutableStateOf(false) }
+    val isConfirmed = confirmationNumber != null
 
     Scaffold(
         topBar = {
@@ -58,22 +60,34 @@ fun SegnapostoScreen(
                     label = { Text("Numero Segnaposto") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    enabled = !isLoading
                 )
+
+                if (error != null) {
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
                 
                 Spacer(modifier = Modifier.height(32.dp))
                 
-                Button(
-                    onClick = {
-                        if (segnaposto.isNotBlank()) {
-                            orderNumber = onConfirm(segnaposto)
-                            isConfirmed = true
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().height(60.dp),
-                    enabled = segnaposto.isNotBlank()
-                ) {
-                    Text("CONFERMA ORDINE", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                if (isLoading) {
+                    CircularProgressIndicator()
+                } else {
+                    Button(
+                        onClick = {
+                            if (segnaposto.isNotBlank()) {
+                                onConfirm(segnaposto)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(60.dp),
+                        enabled = segnaposto.isNotBlank()
+                    ) {
+                        Text("CONFERMA ORDINE", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             } else {
                 // Fase 2: Successo e Numero Ordine
@@ -83,7 +97,7 @@ fun SegnapostoScreen(
                 )
                 
                 Text(
-                    "#$orderNumber",
+                    "#$confirmationNumber",
                     fontSize = 80.sp,
                     fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.primary,
