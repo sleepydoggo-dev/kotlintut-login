@@ -56,7 +56,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(isLoading = true, error = null) }
         viewModelScope.launch {
             try {
-                val response = api.loginUser(LoginRequest(username, pass))
+                // Log del payload di login per debug/Postman
+                val request = LoginRequest(username, pass)
+                val requestJson = com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(request)
+                android.util.Log.d("AUTH_API_LOG", "=== LOGIN REQUEST PAYLOAD ===\n$requestJson")
+
+                val response = api.loginUser(request)
                 
                 if (response.isSuccessful) {
                     val body = response.body()
