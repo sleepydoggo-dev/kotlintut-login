@@ -31,7 +31,7 @@ sealed class Screen(val route: String) {
     object Register : Screen("register")
     object Categories : Screen("categories")
     object Products : Screen("products/{category}") {
-        fun createRoute(category: String) = "products/$category"
+        fun createRoute(category: String) = "products/${android.net.Uri.encode(category)}"
     }
     object ProductDetail : Screen("product_detail")
     object Favorites : Screen("favorites")
@@ -203,7 +203,7 @@ fun AppNavigation(
                     showBack = !productViewModel.isMainLevel(),
                     onCategoryClick = { category ->
                         productViewModel.selectCategory(category) {
-                            navController.navigate(Screen.Products.createRoute(category.id))
+                            navController.navigate(Screen.Products.createRoute(category.id ?: ""))
                         }
                     },
                     onBackClick = { productViewModel.navigateBackCategory() },

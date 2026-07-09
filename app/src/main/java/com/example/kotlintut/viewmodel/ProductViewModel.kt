@@ -106,10 +106,11 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
     /** Gestisce la selezione di una categoria, navigando tra sottocategorie o caricando i prodotti finali. */
     fun selectCategory(category: NetworkCategory, onNavigateToProducts: () -> Unit) {
         val lang = _uiState.value.language
+        val categoryId = category.id ?: ""
         
         viewModelScope.launch {
-            val subCategories = dbHelper.getSubCategoriesLocal(category.id)
-            android.util.Log.d("ProductViewModel", "Subcategories for ${category.name} (${category.id}): ${subCategories.size}")
+            val subCategories = dbHelper.getSubCategoriesLocal(categoryId)
+            android.util.Log.d("ProductViewModel", "Subcategories for ${category.name ?: "Unknown"} ($categoryId): ${subCategories.size}")
             
             if (subCategories.isNotEmpty()) {
                 // Abbiamo sottocategorie: salviamo lo stato attuale e aggiorniamo la lista
@@ -121,8 +122,8 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
                 
                 // Usiamo una variabile per navigare una sola volta
                 var navigated = false
-                repository.getProductsByCategory(category.id).collect { products ->
-                    android.util.Log.d("ProductViewModel", "Products collected for ${category.id}: ${products.size}")
+                repository.getProductsByCategory(categoryId).collect { products ->
+                    android.util.Log.d("ProductViewModel", "Products collected for $categoryId: ${products.size}")
                     val translated = products.map { translateProduct(it, lang) }
                     _uiState.update { it.copy(products = translated, isLoading = false) }
                     

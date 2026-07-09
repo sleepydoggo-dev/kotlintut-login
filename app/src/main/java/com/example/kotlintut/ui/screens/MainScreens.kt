@@ -89,8 +89,8 @@ fun CategoriesScreen(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
-                itemsIndexed(categories, key = { _, cat -> cat.id }) { index, category ->
-                    val label = remember(category.name, translate) { translate(category.name) }
+                itemsIndexed(categories, key = { _, cat -> cat.id ?: "" }) { index, category ->
+                    val label = remember(category.name, translate) { translate(category.name ?: "") }
                     
                     var visible by remember { mutableStateOf(false) }
                     LaunchedEffect(Unit) { visible = true }
@@ -100,7 +100,7 @@ fun CategoriesScreen(
                         enter = fadeIn(animationSpec = tween(300, delayMillis = index * 50)) +
                                 scaleIn(initialScale = 0.8f, animationSpec = tween(300, delayMillis = index * 50))
                     ) {
-                        CategoryCard(category = category.name, label = label) { onCategoryClick(category) }
+                        CategoryCard(category = category.name ?: "", label = label) { onCategoryClick(category) }
                     }
                 }
             }
@@ -464,7 +464,7 @@ private fun ProductPurchaseBar(
                 onClick = onAddToCart,
                 modifier = Modifier.height(55.dp)
             ) {
-                val extrasTotal = addedExtras.sumOf { it.price }
+                val extrasTotal = addedExtras.sumOf { it.price ?: 0.0 }
                 val attributesExtra = selectedAttributes.values.sumOf { it.price }
                 val totalPrice = (basePrice + extrasTotal + attributesExtra) * quantity
                 Text("$buttonLabel  € ${String.format("%.2f", totalPrice)}")
@@ -553,7 +553,7 @@ private fun IngredientsList(
                     enabled = isRemovable
                 )
                 Text(
-                    text = ing.name,
+                    text = ing.name ?: "",
                     modifier = Modifier.padding(start = 8.dp),
                     color = if (isRemovable) Color.Unspecified else Color.Gray
                 )
@@ -584,7 +584,7 @@ private fun ExtrasList(
                     onCheckedChange = { onExtraToggle(ext) }
                 )
                 Text(
-                    text = "${ext.name} (+ € ${String.format("%.2f", ext.price)})",
+                    text = "${ext.name ?: ""} (+ € ${String.format("%.2f", ext.price ?: 0.0)})",
                     modifier = Modifier.padding(start = 8.dp)
                 )
             }

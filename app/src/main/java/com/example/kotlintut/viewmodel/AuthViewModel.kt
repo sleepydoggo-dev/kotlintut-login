@@ -64,8 +64,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         val data = body.data
                         
                         android.util.Log.d("AUTH_API_LOG", "Login Success!")
+                        android.util.Log.d("AUTH_API_LOG", "--------------------------------------------------")
+                        android.util.Log.d("AUTH_API_LOG", "COPPIA QUESTI DATI PER POSTMAN:")
                         android.util.Log.d("AUTH_API_LOG", "AuthToken: ${data.authToken}")
                         android.util.Log.d("AUTH_API_LOG", "UserId: ${data.userId}")
+                        android.util.Log.d("AUTH_API_LOG", "--------------------------------------------------")
                         
                         // Salva i token reali nelle SharedPreferences
                         prefs.edit().apply {

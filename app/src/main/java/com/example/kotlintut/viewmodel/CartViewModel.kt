@@ -245,6 +245,8 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
         }
         val ivaTotale = round(ivaTotaleRaw)
         
+        val (bevande, food) = currentState.items.partition { it.bevanda }
+        
         val payload = com.example.kotlintut.data.network.OrderPayload(
             idUser = userId,
             prodotti = currentState.items,
@@ -252,8 +254,8 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
             ivaTotale = ivaTotale,
             totale = round(currentState.total),
             numeroSegnaPosto = segnaposto,
-            food = currentState.items,
-            bevande = emptyList()
+            food = food,
+            bevande = bevande
         )
         
         val orderSerializer = com.google.gson.JsonSerializer<com.example.kotlintut.data.network.OrderPayload> { src, _, context ->
@@ -284,10 +286,10 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
 
         val jsonPayload = gson.toJson(payload)
         
-        android.util.Log.d("TOTEM_API_TEST", "=== INVIO ORDINE AL SERVER ===")
-        android.util.Log.d("TOTEM_API_TEST", "Payload: $jsonPayload")
+        android.util.Log.d("TOTEM_API_TEST", "=== MOCK: INVIO ORDINE AL SERVER (DISABILITATO) ===")
+        android.util.Log.d("TOTEM_API_TEST", "Payload che sarebbe stato inviato:\n$jsonPayload")
         
-        // Esegue la chiamata API reale al server
+        /* MOCK: Chiamata reale disabilitata per isolamento
         val apiService = com.example.kotlintut.data.network.RetrofitClient.createService(gson)
         viewModelScope.launch {
             try {
@@ -306,6 +308,7 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
                 android.util.Log.e("TOTEM_API_TEST", "Errore di rete durante l'invio dell'ordine", e)
             }
         }
+        */
         
         _uiState.update { it.copy(items = emptyList()) }
         

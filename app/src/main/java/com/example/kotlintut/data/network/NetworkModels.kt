@@ -7,41 +7,41 @@ import com.google.gson.annotations.SerializedName
  */
 data class ApiResponse<T>(
     @SerializedName("success") val success: Boolean,
-    @SerializedName("data") val data: List<T>
+    @SerializedName("data") val data: List<T>?,
 )
 
 /**
  * Modello categoria ricevuto dal server
  */
 data class NetworkCategory(
-    @SerializedName("_id") val id: String,
-    @SerializedName("categoriaPadre") val parentCategory: com.google.gson.JsonElement?,
-    @SerializedName("posizionamento") val position: Int,
-    @SerializedName("categoria") val name: String,
-    @SerializedName("visibile") val isVisible: Boolean
+    @SerializedName("_id") val id: String? = "",
+    @SerializedName("categoriaPadre") val parentCategory: com.google.gson.JsonElement? = null,
+    @SerializedName("posizionamento") val position: Int? = 0,
+    @SerializedName("categoria") val name: String? = "",
+    @SerializedName("visibile") val isVisible: Boolean? = true
 )
 
 /**
  * Modello ingrediente base
  */
 data class NetworkIngredient(
-    @SerializedName("_id") val internalId: String = "",
-    @SerializedName("idIngrediente") val id: String,
-    @SerializedName("nome") val name: String,
-    @SerializedName("eliminabile") val isRemovable: String, // "si" o "no"
-    @SerializedName("qta") val qta: Int = 1,
-    @SerializedName("prezzo") val price: Double = 0.0
+    @SerializedName("_id") val internalId: String? = "",
+    @SerializedName("idIngrediente") val id: String? = "",
+    @SerializedName("nome") val name: String? = "",
+    @SerializedName("eliminabile") val isRemovable: String? = "no", // "si" o "no"
+    @SerializedName("qta") val qta: Int? = 1,
+    @SerializedName("prezzo") val price: Double? = 0.0
 )
 
 /**
  * Modello aggiunta extra
  */
 data class NetworkExtra(
-    @SerializedName("_id") val internalId: String = "",
-    @SerializedName("idIngrediente") val id: String,
-    @SerializedName("nome") val name: String,
-    @SerializedName("prezzo") val price: Double,
-    @SerializedName("qta") val qta: Int = 1
+    @SerializedName("_id") val internalId: String? = "",
+    @SerializedName("idIngrediente") val id: String? = "",
+    @SerializedName("nome") val name: String? = "",
+    @SerializedName("prezzo") val price: Double? = 0.0,
+    @SerializedName("qta") val qta: Int? = 1
 )
 
 /**
@@ -77,15 +77,15 @@ data class OrderSelectedAttribute(
  * Modello prodotto ricevuto dal server
  */
 data class NetworkProduct(
-    @SerializedName("_id") val id: String,
-    @SerializedName("nome") val name: String,
-    @SerializedName("prezzo") val price: Double,
-    @SerializedName("categorie") val categories: List<String>,
-    @SerializedName("immagine") val imageUrl: String,
-    @SerializedName("disponibile") val isAvailable: Boolean,
-    @SerializedName("ingredienti") val ingredients: List<NetworkIngredient>?,
-    @field:SerializedName("aggiunte") val extras: List<NetworkExtra>?,
-    @field:SerializedName("attributi") val attributes: List<NetworkAttribute>?,
+    @SerializedName("_id") val id: String? = "",
+    @SerializedName("nome") val name: String? = "",
+    @SerializedName("prezzo") val price: Double? = 0.0,
+    @SerializedName("categorie") val categories: List<String>? = emptyList(),
+    @SerializedName("immagine") val imageUrl: String? = "",
+    @SerializedName("disponibile") val isAvailable: Boolean? = true,
+    @SerializedName("ingredienti") val ingredients: List<NetworkIngredient>? = emptyList(),
+    @field:SerializedName("aggiunte") val extras: List<NetworkExtra>? = emptyList(),
+    @field:SerializedName("attributi") val attributes: List<NetworkAttribute>? = emptyList(),
     @SerializedName("iva") val iva: NetworkIva? = null
 )
 

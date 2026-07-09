@@ -36,7 +36,7 @@ data class CartItem(
      * Calcola il prezzo totale dell'elemento considerando quantità, aggiunte extra e attributi selezionati.
      */
     fun getTotalPrice(): Double {
-        val extrasTotal = addedExtras.sumOf { it.price }
+        val extrasTotal = addedExtras.sumOf { it.price ?: 0.0 }
         val attributesExtra = orderAttributes.sumOf { it.price }
         return (price + extrasTotal + attributesExtra) * quantity
     }

@@ -247,11 +247,11 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                 }
                 
                 val values = ContentValues().apply {
-                    put(COLUMN_CAT_REMOTE_ID, cat.id)
-                    put(COLUMN_CAT_NAME, cat.name)
+                    put(COLUMN_CAT_REMOTE_ID, cat.id ?: "")
+                    put(COLUMN_CAT_NAME, cat.name ?: "")
                     put("categoria_padre", if (parentId == "0" || parentId == "") null else parentId)
-                    put("posizionamento", cat.position)
-                    put("visibile", if (cat.isVisible) 1 else 0)
+                    put("posizionamento", cat.position ?: 0)
+                    put("visibile", if (cat.isVisible == true) 1 else 0)
                 }
                 db.insertWithOnConflict(TABLE_CATEGORIES, null, values, SQLiteDatabase.CONFLICT_REPLACE)
             }
@@ -269,14 +269,14 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         try {
             networkList.forEach { prod ->
                 val values = ContentValues().apply {
-                    put(COLUMN_PROD_REMOTE_ID, prod.id)
-                    put(COLUMN_PROD_NAME, prod.name)
-                    put(COLUMN_PROD_PRICE, prod.price)
+                    put(COLUMN_PROD_REMOTE_ID, prod.id ?: "")
+                    put(COLUMN_PROD_NAME, prod.name ?: "")
+                    put(COLUMN_PROD_PRICE, prod.price ?: 0.0)
                     put(COLUMN_PROD_DESC, "") 
                     put(COLUMN_PROD_CAT, requestedCategoryId)
-                    put(COLUMN_PROD_IMG_URL, prod.imageUrl)
-                    put(COLUMN_PROD_AVAILABLE, if (prod.isAvailable) 1 else 0)
-                    put(COLUMN_PROD_ATTRIBUTES, gson.toJson(prod.attributes))
+                    put(COLUMN_PROD_IMG_URL, prod.imageUrl ?: "")
+                    put(COLUMN_PROD_AVAILABLE, if (prod.isAvailable == true) 1 else 0)
+                    put(COLUMN_PROD_ATTRIBUTES, gson.toJson(prod.attributes ?: emptyList<com.example.kotlintut.data.network.NetworkAttribute>()))
                     put(COLUMN_PROD_IVA, gson.toJson(prod.iva))
                 }
                 db.insertWithOnConflict(TABLE_PRODUCTS, null, values, SQLiteDatabase.CONFLICT_REPLACE)
@@ -284,10 +284,10 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                 // Upsert Ingredienti
                 prod.ingredients?.forEach { ing ->
                     val ingValues = ContentValues().apply {
-                        put(COLUMN_ING_ID, "${prod.id}_${ing.id}") // Chiave composta per sicurezza
-                        put(COLUMN_ING_PROD_ID, prod.id)
-                        put(COLUMN_ING_NAME, ing.name)
-                        put(COLUMN_ING_REMOVABLE, ing.isRemovable)
+                        put(COLUMN_ING_ID, "${prod.id ?: ""}_${ing.id ?: ""}") // Chiave composta per sicurezza
+                        put(COLUMN_ING_PROD_ID, prod.id ?: "")
+                        put(COLUMN_ING_NAME, ing.name ?: "")
+                        put(COLUMN_ING_REMOVABLE, ing.isRemovable ?: "no")
                     }
                     db.insertWithOnConflict(TABLE_INGREDIENTS, null, ingValues, SQLiteDatabase.CONFLICT_REPLACE)
                 }
@@ -295,10 +295,10 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                 // Upsert Aggiunte
                 prod.extras?.forEach { ext ->
                     val extValues = ContentValues().apply {
-                        put(COLUMN_EXT_ID, "${prod.id}_${ext.id}")
-                        put(COLUMN_EXT_PROD_ID, prod.id)
-                        put(COLUMN_EXT_NAME, ext.name)
-                        put(COLUMN_EXT_PRICE, ext.price)
+                        put(COLUMN_EXT_ID, "${prod.id ?: ""}_${ext.id ?: ""}")
+                        put(COLUMN_EXT_PROD_ID, prod.id ?: "")
+                        put(COLUMN_EXT_NAME, ext.name ?: "")
+                        put(COLUMN_EXT_PRICE, ext.price ?: 0.0)
                     }
                     db.insertWithOnConflict(TABLE_EXTRAS, null, extValues, SQLiteDatabase.CONFLICT_REPLACE)
                 }
@@ -321,8 +321,8 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
             if (cursor.moveToFirst()) {
                 do {
                     list.add(com.example.kotlintut.data.network.NetworkCategory(
-                        id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CAT_REMOTE_ID)),
-                        name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CAT_NAME)),
+                        id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CAT_REMOTE_ID)) ?: "",
+                        name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CAT_NAME)) ?: "",
                         parentCategory = null,
                         position = cursor.getInt(cursor.getColumnIndexOrThrow("posizionamento")),
                         isVisible = cursor.getInt(cursor.getColumnIndexOrThrow("visibile")) == 1
@@ -342,8 +342,8 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
             if (cursor.moveToFirst()) {
                 do {
                     list.add(com.example.kotlintut.data.network.NetworkCategory(
-                        id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CAT_REMOTE_ID)),
-                        name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CAT_NAME)),
+                        id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CAT_REMOTE_ID)) ?: "",
+                        name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CAT_NAME)) ?: "",
                         parentCategory = null,
                         position = cursor.getInt(cursor.getColumnIndexOrThrow("posizionamento")),
                         isVisible = cursor.getInt(cursor.getColumnIndexOrThrow("visibile")) == 1
@@ -365,10 +365,10 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         db.query(TABLE_PRODUCTS, null, "$COLUMN_PROD_CAT=?", arrayOf(category), null, null, null).use { cursor ->
             if (cursor.moveToFirst()) {
                 do {
-                    val remoteId = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_REMOTE_ID))
-                    val name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_NAME))
+                    val remoteId = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_REMOTE_ID)) ?: ""
+                    val name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_NAME)) ?: ""
                     val price = cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_PROD_PRICE))
-                    val desc = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_DESC))
+                    val desc = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_DESC)) ?: ""
                     val imgUrl = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_IMG_URL)) ?: ""
                     
                     val attrJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_ATTRIBUTES))
@@ -404,9 +404,9 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
             if (cursor.moveToFirst()) {
                 do {
                     list.add(com.example.kotlintut.data.network.NetworkIngredient(
-                        id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ING_ID)),
-                        name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ING_NAME)),
-                        isRemovable = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ING_REMOVABLE)),
+                        id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ING_ID)) ?: "",
+                        name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ING_NAME)) ?: "",
+                        isRemovable = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ING_REMOVABLE)) ?: "no",
                         qta = 1,
                         price = 0.0
                     ))
@@ -424,8 +424,8 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
             if (cursor.moveToFirst()) {
                 do {
                     list.add(com.example.kotlintut.data.network.NetworkExtra(
-                        id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_EXT_ID)),
-                        name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_EXT_NAME)),
+                        id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_EXT_ID)) ?: "",
+                        name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_EXT_NAME)) ?: "",
                         price = cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_EXT_PRICE)),
                         qta = 1
                     ))
