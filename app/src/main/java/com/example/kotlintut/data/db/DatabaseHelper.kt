@@ -16,7 +16,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
 
     companion object {
         private const val DATABASE_NAME = "RistoranteTotem_Compose.db"
-        private const val DATABASE_VERSION = 11
+        private const val DATABASE_VERSION = 12
 
         const val TABLE_USERS = "utenti"
         const val COLUMN_USER_ID = "id"
@@ -78,7 +78,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         const val COLUMN_ITEM_ATTRIBUTES = "selected_attributes"
         const val COLUMN_ITEM_FULL_ATTRIBUTES = "full_attributes"
         const val COLUMN_ITEM_CAT = "prodotto_categoria"
-        
+
         const val TABLE_INGREDIENTS = "ingredienti"
         const val COLUMN_ING_ID = "id_ingrediente"
         const val COLUMN_ING_PROD_ID = "product_id"
@@ -219,15 +219,70 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         // Rimosso insertInitialProducts(db) per pulizia dati mock
     }
 
-    /** Gestisce l'aggiornamento del database. */
+    /**
+     * Gestisce l'aggiornamento del database.
+     *
+     * Le tabelle "categorie", "prodotti", "ingredienti" e "aggiunte" sono una semplice
+     * cache offline-first: vengono SEMPRE ripopolate dal server tramite upsertCategories()/
+     * upsertProducts() alla prima chiamata di rete andata a buon fine. Per questo, ad ogni
+     * cambio di schema, invece di scrivere una ALTER TABLE diversa per ogni colonna aggiunta
+     * (facile da dimenticare, come è successo con "attributi"), le ricreiamo da zero: non si
+     * perdono dati reali e siamo certi che lo schema sia sempre allineato al codice.
+     *
+     * Utenti, carrello, ordini e preferiti invece sono dati reali dell'utente e non vengono
+     * mai eliminati in una migrazione.
+     */
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        if (oldVersion < 11) {
-            try {
-                db.execSQL("ALTER TABLE $TABLE_PRODUCTS ADD COLUMN $COLUMN_PROD_IVA TEXT")
-            } catch (e: Exception) {
-                android.util.Log.w("DatabaseHelper", "Aggiunta colonna IVA fallita o colonna già presente")
-            }
-        }
+        db.execSQL("DROP TABLE IF EXISTS $TABLE_CATEGORIES")
+        db.execSQL("DROP TABLE IF EXISTS $TABLE_PRODUCTS")
+        db.execSQL("DROP TABLE IF EXISTS $TABLE_INGREDIENTS")
+        db.execSQL("DROP TABLE IF EXISTS $TABLE_EXTRAS")
+
+        db.execSQL("""
+            CREATE TABLE $TABLE_CATEGORIES (
+                $COLUMN_CAT_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COLUMN_CAT_REMOTE_ID TEXT UNIQUE,
+                $COLUMN_CAT_NAME TEXT,
+                categoria_padre TEXT,
+                posizionamento INTEGER,
+                visibile INTEGER DEFAULT 1
+            )
+        """.trimIndent())
+
+        db.execSQL("""
+            CREATE TABLE $TABLE_PRODUCTS (
+                $COLUMN_PROD_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COLUMN_PROD_REMOTE_ID TEXT UNIQUE,
+                $COLUMN_PROD_NAME TEXT,
+                $COLUMN_PROD_PRICE REAL,
+                $COLUMN_PROD_DESC TEXT,
+                $COLUMN_PROD_CAT TEXT,
+                $COLUMN_PROD_IMG_URL TEXT,
+                $COLUMN_PROD_AVAILABLE INTEGER,
+                $COLUMN_PROD_ATTRIBUTES TEXT,
+                $COLUMN_PROD_IVA TEXT
+            )
+        """.trimIndent())
+
+        db.execSQL("""
+            CREATE TABLE $TABLE_INGREDIENTS (
+                $COLUMN_ING_ID TEXT PRIMARY KEY,
+                $COLUMN_ING_PROD_ID TEXT,
+                $COLUMN_ING_NAME TEXT,
+                $COLUMN_ING_REMOVABLE TEXT,
+                FOREIGN KEY($COLUMN_ING_PROD_ID) REFERENCES $TABLE_PRODUCTS($COLUMN_PROD_REMOTE_ID)
+            )
+        """.trimIndent())
+
+        db.execSQL("""
+            CREATE TABLE $TABLE_EXTRAS (
+                $COLUMN_EXT_ID TEXT PRIMARY KEY,
+                $COLUMN_EXT_PROD_ID TEXT,
+                $COLUMN_EXT_NAME TEXT,
+                $COLUMN_EXT_PRICE REAL,
+                FOREIGN KEY($COLUMN_EXT_PROD_ID) REFERENCES $TABLE_PRODUCTS($COLUMN_PROD_REMOTE_ID)
+            )
+        """.trimIndent())
     }
 
     // --- METODI PER UPSERT (OFFLINE-FIRST) ---
@@ -245,7 +300,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                     null -> null
                     else -> pc.toString()
                 }
-                
+
                 val values = ContentValues().apply {
                     put(COLUMN_CAT_REMOTE_ID, cat.id ?: "")
                     put(COLUMN_CAT_NAME, cat.name ?: "")
@@ -272,7 +327,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                     put(COLUMN_PROD_REMOTE_ID, prod.id ?: "")
                     put(COLUMN_PROD_NAME, prod.name ?: "")
                     put(COLUMN_PROD_PRICE, prod.price ?: 0.0)
-                    put(COLUMN_PROD_DESC, "") 
+                    put(COLUMN_PROD_DESC, "")
                     put(COLUMN_PROD_CAT, requestedCategoryId)
                     put(COLUMN_PROD_IMG_URL, prod.imageUrl ?: "")
                     put(COLUMN_PROD_AVAILABLE, if (prod.isAvailable == true) 1 else 0)
@@ -361,7 +416,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         val gson = Gson()
         val attributeType = object : TypeToken<List<com.example.kotlintut.data.network.NetworkAttribute>>() {}.type
         val ivaType = object : TypeToken<com.example.kotlintut.data.network.NetworkIva>() {}.type
-        
+
         db.query(TABLE_PRODUCTS, null, "$COLUMN_PROD_CAT=?", arrayOf(category), null, null, null).use { cursor ->
             if (cursor.moveToFirst()) {
                 do {
@@ -370,7 +425,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                     val price = cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_PROD_PRICE))
                     val desc = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_DESC)) ?: ""
                     val imgUrl = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_IMG_URL)) ?: ""
-                    
+
                     val attrJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_ATTRIBUTES))
                     val attributes: List<com.example.kotlintut.data.network.NetworkAttribute> = try {
                         if (!attrJson.isNullOrBlank()) {
@@ -379,7 +434,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                     } catch (e: Exception) {
                         emptyList()
                     }
-                    
+
                     val ivaJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PROD_IVA))
                     val iva: com.example.kotlintut.data.network.NetworkIva? = try {
                         if (!ivaJson.isNullOrBlank()) {
@@ -446,7 +501,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                     // Nota: TABLE_FAVORITES al momento non ha remote_id, formati o dimensioni salvati singolarmente.
                     // Per ora ritorniamo i dati base, ma in una versione futura TABLE_FAVORITES potrebbe essere aggiornata.
                     list.add(Product(
-                        id = "", 
+                        id = "",
                         name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_FAV_PROD_NAME)),
                         price = cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_FAV_PROD_PRICE)),
                         description = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_FAV_PROD_DESC)),
@@ -526,7 +581,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                     val desc = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CART_DESC))
                     val img = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CART_IMG))
                     val qty = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_CART_QTY))
-                    
+
                     val removedIngJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CART_REMOVED_ING))
                     val addedExtJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CART_ADDED_EXT))
                     val attrJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CART_ATTRIBUTES))
@@ -624,7 +679,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                     val name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ITEM_NAME))
                     val price = cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_ITEM_PRICE))
                     val qty = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ITEM_QTY))
-                    
+
                     val removedIngJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ITEM_REMOVED_ING))
                     val addedExtJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ITEM_ADDED_EXT))
                     val attrJson = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ITEM_ATTRIBUTES))

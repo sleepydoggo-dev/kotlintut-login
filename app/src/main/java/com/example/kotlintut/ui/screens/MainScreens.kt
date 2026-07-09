@@ -69,7 +69,7 @@ fun CategoriesScreen(
 
     Scaffold(
         modifier = Modifier.pointerInput(Unit) {},
-        topBar = { 
+        topBar = {
             TotemTopBar(
                 title = if (showBack) "" else "Ristorante Totem",
                 showMenu = !showBack,
@@ -78,23 +78,23 @@ fun CategoriesScreen(
                 onMenuClick = onMenuClick,
                 onCartClick = onCartClick,
                 cartItemCount = cartCount
-            ) 
+            )
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
             ScreenTitle(text = title)
-            
+
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
-                itemsIndexed(categories, key = { _, cat -> cat.id ?: "" }) { index, category ->
+                itemsIndexed(categories, key = { index, cat -> "${cat.id ?: ""}_$index" }) { index, category ->
                     val label = remember(category.name, translate) { translate(category.name ?: "") }
-                    
+
                     var visible by remember { mutableStateOf(false) }
                     LaunchedEffect(Unit) { visible = true }
-                    
+
                     AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(animationSpec = tween(300, delayMillis = index * 50)) +
@@ -128,15 +128,15 @@ fun ProductsScreen(
 ) {
     Scaffold(
         modifier = Modifier.pointerInput(Unit) {},
-        topBar = { 
+        topBar = {
             TotemTopBar(
-                title = categoryLabel, 
-                showMenu = false, 
-                showBack = true, 
+                title = categoryLabel,
+                showMenu = false,
+                showBack = true,
                 onBackClick = onBack,
                 onCartClick = onCartClick,
                 cartItemCount = cartCount
-            ) 
+            )
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
@@ -149,7 +149,7 @@ fun ProductsScreen(
                 shape = MaterialTheme.shapes.medium,
                 singleLine = true
             )
-            
+
             AnimatedContent(
                 targetState = products,
                 transitionSpec = {
@@ -165,7 +165,7 @@ fun ProductsScreen(
                         modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
                         contentPadding = PaddingValues(bottom = 16.dp)
                     ) {
-                        itemsIndexed(targetProducts, key = { _, prod -> prod.id.ifEmpty { prod.name } }) { index, product ->
+                        itemsIndexed(targetProducts, key = { index, prod -> "${prod.id.ifEmpty { prod.name }}_$index" }) { index, product ->
                             var visible by remember(product.id.ifEmpty { product.name }) { mutableStateOf(false) }
                             LaunchedEffect(product.id.ifEmpty { product.name }) { visible = true }
 
@@ -255,11 +255,11 @@ fun ProductDetailScreen(
                 isFavorite = isFavorite,
                 onFavoriteToggle = onFavoriteToggle
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             ProductInfo(name = product.name, description = product.description)
-            
+
             Spacer(modifier = Modifier.height(24.dp))
 
             product.attributes.forEach { attribute ->
@@ -295,7 +295,7 @@ fun ProductDetailScreen(
                     }
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(80.dp)) // Padding for bottom bar
         }
     }
@@ -393,7 +393,7 @@ fun ProductCard(product: Product, onClick: () -> Unit) {
             val imageResId = remember(product.imageKey) {
                 context.resources.getIdentifier(product.imageKey, "drawable", context.packageName)
             }
-            
+
             Box(
                 modifier = Modifier
                     .weight(1f)

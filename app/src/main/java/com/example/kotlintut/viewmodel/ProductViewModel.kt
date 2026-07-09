@@ -13,12 +13,15 @@ import com.example.kotlintut.data.network.NetworkIngredient
 import com.example.kotlintut.data.network.RetrofitClient
 import com.example.kotlintut.data.repository.MenuRepository
 import com.example.kotlintut.ui.theme.Locales
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * UI State for the Product Browsing experience.
@@ -67,10 +70,12 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
     /** Carica le categorie principali all'avvio chiamando il repository. */
     private fun loadCategories() {
         viewModelScope.launch {
-            repository.getCategories().collect { networkCategories ->
-                _categories.value = networkCategories
-                _uiState.update { it.copy(categories = networkCategories) }
-            }
+            repository.getCategories()
+                .flowOn(Dispatchers.IO)
+                .collect { networkCategories ->
+                    _categories.value = networkCategories
+                    _uiState.update { it.copy(categories = networkCategories) }
+                }
         }
     }
 
@@ -94,10 +99,12 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         val user = loggedUser
         val lang = _uiState.value.language
         viewModelScope.launch {
-            val favs = if (user != null) {
-                dbHelper.getFavorites(user).map { translateProduct(it, lang) }
-            } else {
-                emptyList()
+            val favs = withContext(Dispatchers.IO) {
+                if (user != null) {
+                    dbHelper.getFavorites(user).map { translateProduct(it, lang) }
+                } else {
+                    emptyList()
+                }
             }
             _uiState.update { it.copy(favorites = favs) }
         }
@@ -107,31 +114,40 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
     fun selectCategory(category: NetworkCategory, onNavigateToProducts: () -> Unit) {
         val lang = _uiState.value.language
         val categoryId = category.id ?: ""
-        
+
         viewModelScope.launch {
-            val subCategories = dbHelper.getSubCategoriesLocal(categoryId)
-            android.util.Log.d("ProductViewModel", "Subcategories for ${category.name ?: "Unknown"} ($categoryId): ${subCategories.size}")
-            
-            if (subCategories.isNotEmpty()) {
-                // Abbiamo sottocategorie: salviamo lo stato attuale e aggiorniamo la lista
-                categoryHistory.push(_uiState.value.categories)
-                _uiState.update { it.copy(categories = subCategories, selectedCategory = category) }
-            } else {
-                // Ultimo livello: carichiamo i prodotti
-                _uiState.update { it.copy(selectedCategory = category, isLoading = true, products = emptyList()) }
-                
-                // Usiamo una variabile per navigare una sola volta
-                var navigated = false
-                repository.getProductsByCategory(categoryId).collect { products ->
-                    android.util.Log.d("ProductViewModel", "Products collected for $categoryId: ${products.size}")
-                    val translated = products.map { translateProduct(it, lang) }
-                    _uiState.update { it.copy(products = translated, isLoading = false) }
-                    
-                    if (!navigated) {
-                        navigated = true
-                        onNavigateToProducts()
-                    }
+            try {
+                val subCategories = withContext(Dispatchers.IO) {
+                    dbHelper.getSubCategoriesLocal(categoryId)
                 }
+                android.util.Log.d("ProductViewModel", "Subcategories for ${category.name ?: "Unknown"} ($categoryId): ${subCategories.size}")
+
+                if (subCategories.isNotEmpty()) {
+                    // Abbiamo sottocategorie: salviamo lo stato attuale e aggiorniamo la lista
+                    categoryHistory.push(_uiState.value.categories)
+                    _uiState.update { it.copy(categories = subCategories, selectedCategory = category) }
+                } else {
+                    // Ultimo livello: carichiamo i prodotti
+                    _uiState.update { it.copy(selectedCategory = category, isLoading = true, products = emptyList()) }
+
+                    // Usiamo una variabile per navigare una sola volta
+                    var navigated = false
+                    repository.getProductsByCategory(categoryId)
+                        .flowOn(Dispatchers.IO)
+                        .collect { products ->
+                            android.util.Log.d("ProductViewModel", "Products collected for $categoryId: ${products.size}")
+                            val translated = products.map { translateProduct(it, lang) }
+                            _uiState.update { it.copy(products = translated, isLoading = false) }
+
+                            if (!navigated) {
+                                navigated = true
+                                onNavigateToProducts()
+                            }
+                        }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ProductViewModel", "Errore durante la selezione della categoria $categoryId", e)
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
         }
     }
@@ -156,16 +172,18 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update { it.copy(selectedProduct = product, isLoading = true) }
         viewModelScope.launch {
             try {
-                val ingredients = dbHelper.getIngredientsByProduct(product.id)
-                val extras = dbHelper.getExtrasByProduct(product.id)
-                _uiState.update { 
+                val (ingredients, extras) = withContext(Dispatchers.IO) {
+                    dbHelper.getIngredientsByProduct(product.id) to dbHelper.getExtrasByProduct(product.id)
+                }
+                _uiState.update {
                     it.copy(
                         productIngredients = ingredients,
                         productExtras = extras,
                         isLoading = false
-                    ) 
+                    )
                 }
             } catch (e: Exception) {
+                android.util.Log.e("ProductViewModel", "Errore durante il caricamento del prodotto ${product.id}", e)
                 _uiState.update { it.copy(error = e.message, isLoading = false) }
             }
         }
@@ -175,12 +193,18 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
     fun toggleFavorite(product: Product) {
         val user = loggedUser ?: return
         viewModelScope.launch {
-            if (dbHelper.isFavorite(user, product.name)) {
-                dbHelper.removeFavorite(user, product.name)
-            } else {
-                dbHelper.addFavorite(user, product)
+            try {
+                withContext(Dispatchers.IO) {
+                    if (dbHelper.isFavorite(user, product.name)) {
+                        dbHelper.removeFavorite(user, product.name)
+                    } else {
+                        dbHelper.addFavorite(user, product)
+                    }
+                }
+                loadFavorites()
+            } catch (e: Exception) {
+                android.util.Log.e("ProductViewModel", "Errore durante l'aggiornamento dei preferiti per ${product.name}", e)
             }
-            loadFavorites()
         }
     }
 
