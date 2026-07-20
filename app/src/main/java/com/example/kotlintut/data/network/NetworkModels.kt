@@ -144,19 +144,60 @@ data class NetworkIva(
 /** Modello per l'ordine ricevuto dal server */
 data class NetworkOrder(
     @SerializedName("_id") val id: String,
+    @SerializedName("idUnivoco") val idUnivoco: String? = null,
+    @SerializedName("numeroOrdine") val numeroOrdine: com.google.gson.JsonElement? = null,
+    @SerializedName("numero") val numero: com.google.gson.JsonElement? = null,
+    @SerializedName("progressivo") val progressivo: com.google.gson.JsonElement? = null,
     @SerializedName("data") val date: String,
+    @SerializedName("createdAt") val createdAt: String? = null,
     @SerializedName("totale") val total: Double,
     @SerializedName("stato") val status: String? = null,
+    @SerializedName("consegna") val consegna: String? = "tavolo",
+    @SerializedName("numeroSegnaPosto") val numeroSegnaPosto: String? = "",
     @SerializedName("prodotti") val items: List<com.example.kotlintut.data.model.CartItem>
 )
 
 /** Estensione per mappare NetworkOrder verso il modello di dominio Order */
 fun NetworkOrder.toDomain(): com.example.kotlintut.data.model.Order {
+    // Formattazione data ISO 8601 -> Leggibile (Giorno/Mese/Anno Ora:Min)
+    // Usiamo createdAt se disponibile, altrimenti date
+    val rawDate = this.createdAt ?: this.date
+    val formattedDate = try {
+        val inputFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+        inputFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+        val dateObj = inputFormat.parse(rawDate)
+        val outputFormat = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.ITALIAN)
+        dateObj?.let { outputFormat.format(it) } ?: rawDate
+    } catch (e: Exception) {
+        rawDate
+    }
+
+    // Funzione helper per estrarre una stringa da un JsonElement
+    fun extractString(element: com.google.gson.JsonElement?): String? {
+        return when {
+            element == null || element.isJsonNull -> null
+            element.isJsonPrimitive -> element.asString
+            else -> null
+        }
+    }
+
+    // Cerchiamo il numero ordine in diversi campi possibili
+    val extractedOrderNumber = extractString(this.numero) 
+        ?: extractString(this.progressivo)
+        ?: extractString(this.numeroOrdine)
+        ?: this.idUnivoco
+        ?: this.id.takeLast(6).uppercase()
+
+    android.util.Log.d("TOTEM_API", "Mapping Order ${this.id}: Extracted Number = $extractedOrderNumber")
+
     return com.example.kotlintut.data.model.Order(
-        id = this.id.hashCode(), // Conversione sicura da String a Int
-        date = this.date,
+        id = this.id.hashCode(),
+        orderNumber = extractedOrderNumber,
+        date = formattedDate,
         total = this.total,
         status = this.status ?: "In elaborazione",
+        consegna = this.consegna ?: "tavolo",
+        numeroSegnaPosto = this.numeroSegnaPosto ?: "",
         items = this.items
     )
 }

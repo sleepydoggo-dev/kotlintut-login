@@ -445,10 +445,16 @@ fun OrderRowWithDetails(order: Order, language: String, onReorder: () -> Unit) {
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).clickable { expanded = !expanded }
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(order.date, fontWeight = FontWeight.Bold)
-                    Text("${translate("order_id")}${order.id}", fontSize = 12.sp, color = Color.Gray)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("${translate("order_id")}${order.orderNumber}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        if (order.numeroSegnaPosto.isNotBlank()) {
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text("📍 Tavolo ${order.numeroSegnaPosto}", fontSize = 12.sp, color = Color.Gray)
+                        }
+                    }
                     
                     Spacer(modifier = Modifier.height(4.dp))
                     
@@ -459,7 +465,14 @@ fun OrderRowWithDetails(order: Order, language: String, onReorder: () -> Unit) {
                         color = statusColor
                     )
                 }
-                Text("€ ${String.format("%.2f", order.total)}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("€ ${String.format("%.2f", order.total)}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
             }
             
             AnimatedVisibility(visible = expanded) {
@@ -467,18 +480,24 @@ fun OrderRowWithDetails(order: Order, language: String, onReorder: () -> Unit) {
                     order.items.forEach { item ->
                         Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("${item.quantity}x ${item.name}", fontSize = 14.sp)
-                                Text("€ ${String.format("%.2f", item.getTotalPrice())}", fontSize = 14.sp)
+                                Text("${item.quantity}x ${item.name}", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                Text("€ ${String.format("%.2f", item.price)}", fontSize = 14.sp)
                             }
                             
-                            // Attributi selezionati
+                            // Attributi selezionati (es. Formato, Dimensione)
                             if (item.orderAttributes.isNotEmpty()) {
-                                val options = item.orderAttributes.joinToString(" - ") { "${it.attributeName}: ${it.valueName}" }
-                                Text("  $options", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                                item.orderAttributes.forEach { attr ->
+                                    Text(
+                                        text = "${attr.attributeName}: ${attr.valueName}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.Gray,
+                                        modifier = Modifier.padding(start = 8.dp)
+                                    )
+                                }
                             }
 
                             item.removedIngredients.forEach { ing ->
-                                Text("  - Senza: ${ing.name}", fontSize = 12.sp, color = Color.Red)
+                                Text("  - Senza: ${ing.name}", fontSize = 12.sp, color = Color(0xFFEF5350))
                             }
                             item.addedExtras.forEach { ext ->
                                 Text("  + Extra: ${ext.name}", fontSize = 12.sp, color = Color(0xFF4CAF50))

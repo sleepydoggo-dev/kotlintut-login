@@ -159,7 +159,7 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
         val items = _uiState.value.items
         _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
-            dbHelper.saveOrder(username, total, items)
+            dbHelper.saveOrder(username, total, items, "") // Il numero ordine reale viene gestito in sendOrderToServer
             dbHelper.saveCart(username, emptyList())
             _uiState.update { it.copy(items = emptyList(), isLoading = false, isOrderConfirmed = true) }
         }
@@ -170,7 +170,10 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(isLoading = true, orderError = null) }
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
-                // RetrofitClient.instance gestisce già gli header con userId e token
+                // 1. Recuperiamo prima gli ordini locali per avere i numeri d'ordine "random" salvati
+                val localOrders = dbHelper.getOrdersByUser(username)
+                
+                // 2. Chiamata al server
                 val response = RetrofitClient.instance.getOrders()
                 
                 if (response.isSuccessful) {
@@ -181,8 +184,23 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
                     val jsonResponse = gsonPretty.toJson(networkOrders)
                     android.util.Log.d("TOTEM_API", "=== STORICO ORDINI DAL SERVER ===\n$jsonResponse")
 
-                    // Mappa gli ordini di rete nel modello di dominio Order
-                    val domainOrders = networkOrders.map { it.toDomain() }
+                    // 3. Mappa gli ordini di rete e tenta di recuperare il numero d'ordine locale se disponibile
+                    val domainOrders = networkOrders.map { netOrder ->
+                        val domainOrder = netOrder.toDomain()
+                        
+                        // Cerchiamo se esiste un ordine locale con lo stesso totale e la stessa data (confronto stringa parziale)
+                        // Il formato locale è "dd/MM/yyyy HH:mm", quello server ora mappato è lo stesso.
+                        val matchingLocal = localOrders.find { 
+                            it.total == domainOrder.total && (it.date == domainOrder.date || it.date.contains(domainOrder.date.takeLast(5)))
+                        }
+                        
+                        if (matchingLocal != null && matchingLocal.orderNumber.isNotEmpty()) {
+                            android.util.Log.d("TOTEM_API", "Trovato match locale per ordine del ${domainOrder.date}: Uso numero #${matchingLocal.orderNumber}")
+                            domainOrder.copy(orderNumber = matchingLocal.orderNumber)
+                        } else {
+                            domainOrder
+                        }
+                    }
                     
                     _uiState.update { 
                         it.copy(
@@ -200,7 +218,7 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
                 android.util.Log.e("CartViewModel", "Errore di rete durante il recupero degli ordini", e)
                 _uiState.update { it.copy(isLoading = false, orderError = "Errore di rete: ${e.message}") }
                 
-                // Fallback locale in caso di errore di rete
+                // Fallback locale totale in caso di errore di rete
                 val localOrders = dbHelper.getOrdersByUser(username)
                 _uiState.update { it.copy(orders = localOrders) }
             }
@@ -357,8 +375,8 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
                     val orderNum = (1..999).random().toString()
                     android.util.Log.d("TOTEM_API", "Ordine inviato con successo! Numero: #$orderNum")
                     
-                    // Salviamo l'ordine nel DB locale prima di svuotare
-                    dbHelper.saveOrder(userId ?: "GUEST", currentState.total, currentState.items)
+                    // Salviamo l'ordine nel DB locale con il NUMERO RANDOM GENERATO
+                    dbHelper.saveOrder(userId ?: "GUEST", currentState.total, currentState.items, orderNum)
                     dbHelper.saveCart(userId ?: "GUEST", emptyList())
 
                     _uiState.update { 

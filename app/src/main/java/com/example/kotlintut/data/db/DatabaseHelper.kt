@@ -16,7 +16,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
 
     companion object {
         private const val DATABASE_NAME = "RistoranteTotem_Compose.db"
-        private const val DATABASE_VERSION = 12
+        private const val DATABASE_VERSION = 13
 
         const val TABLE_USERS = "utenti"
         const val COLUMN_USER_ID = "id"
@@ -65,6 +65,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         const val COLUMN_ORDER_USER = "username"
         const val COLUMN_ORDER_DATE = "data"
         const val COLUMN_ORDER_TOTAL = "totale"
+        const val COLUMN_ORDER_NUMBER = "order_number"
 
         const val TABLE_ORDER_ITEMS = "ordini_dettagli"
         const val COLUMN_ITEM_ID = "id"
@@ -164,7 +165,8 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                 $COLUMN_ORDER_ID INTEGER PRIMARY KEY AUTOINCREMENT,
                 $COLUMN_ORDER_USER TEXT,
                 $COLUMN_ORDER_DATE TEXT,
-                $COLUMN_ORDER_TOTAL REAL
+                $COLUMN_ORDER_TOTAL REAL,
+                $COLUMN_ORDER_NUMBER TEXT
             )
         """.trimIndent())
 
@@ -233,6 +235,14 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
      * mai eliminati in una migrazione.
      */
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 13) {
+            try {
+                db.execSQL("ALTER TABLE $TABLE_ORDERS ADD COLUMN $COLUMN_ORDER_NUMBER TEXT")
+            } catch (e: Exception) {
+                android.util.Log.e("DatabaseHelper", "Errore upgrade V13: ${e.message}")
+            }
+        }
+        
         db.execSQL("DROP TABLE IF EXISTS $TABLE_CATEGORIES")
         db.execSQL("DROP TABLE IF EXISTS $TABLE_PRODUCTS")
         db.execSQL("DROP TABLE IF EXISTS $TABLE_INGREDIENTS")
@@ -615,7 +625,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
     }
 
     /** Registra un nuovo ordine nel database locale, salvando i dettagli dei prodotti e le loro personalizzazioni. */
-    fun saveOrder(username: String, total: Double, items: List<CartItem>) {
+    fun saveOrder(username: String, total: Double, items: List<CartItem>, orderNumber: String = "") {
         val db = writableDatabase
         val date = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
         val gson = Gson()
@@ -623,6 +633,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
             put(COLUMN_ORDER_USER, username)
             put(COLUMN_ORDER_TOTAL, total)
             put(COLUMN_ORDER_DATE, date)
+            put(COLUMN_ORDER_NUMBER, orderNumber)
         }
         val orderId = db.insert(TABLE_ORDERS, null, orderValues)
         if (orderId != -1L) {
@@ -652,10 +663,11 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
             if (cursor.moveToFirst()) {
                 do {
                     val id = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ORDER_ID))
+                    val orderNum = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ORDER_NUMBER)) ?: id.toString()
                     val date = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ORDER_DATE))
                     val total = cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_ORDER_TOTAL))
                     val items = getOrderItems(id)
-                    orders.add(Order(id, date, total, "In elaborazione", items))
+                    orders.add(Order(id, orderNum, date, total, "In elaborazione", "tavolo", "", items))
                 } while (cursor.moveToNext())
             }
         }

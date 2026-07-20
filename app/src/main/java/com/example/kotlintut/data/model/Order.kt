@@ -8,8 +8,11 @@ import androidx.compose.runtime.Immutable
 @Immutable
 data class Order(
     val id: Int,
+    val orderNumber: String,
     val date: String,
     val total: Double,
     val status: String,
+    val consegna: String = "tavolo",
+    val numeroSegnaPosto: String = "",
     val items: List<CartItem>
 )
