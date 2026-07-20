@@ -449,14 +449,23 @@ fun OrderRowWithDetails(order: Order, language: String, onReorder: () -> Unit) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(order.date, fontWeight = FontWeight.Bold)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("${translate("order_id")}${order.orderNumber}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            text = "${translate("order_id")}${order.orderNumber}", 
+                            fontSize = 14.sp, 
+                            fontWeight = FontWeight.Bold, 
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         if (order.numeroSegnaPosto.isNotBlank()) {
                             Spacer(modifier = Modifier.width(12.dp))
-                            Text("📍 Tavolo ${order.numeroSegnaPosto}", fontSize = 12.sp, color = Color.Gray)
+                            Text(
+                                text = "📍 Tavolo ${order.numeroSegnaPosto}", 
+                                fontSize = 12.sp, 
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                            )
                         }
                     }
                     
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     
                     Text(
                         text = order.status,
@@ -478,29 +487,61 @@ fun OrderRowWithDetails(order: Order, language: String, onReorder: () -> Unit) {
             AnimatedVisibility(visible = expanded) {
                 Column(modifier = Modifier.padding(top = 16.dp)) {
                     order.items.forEach { item ->
+                        // Calcoliamo il prezzo base sottraendo extra e attributi se inclusi
+                        val totalExtrasPrice = item.addedExtras.sumOf { it.price ?: 0.0 } + 
+                                             item.orderAttributes.sumOf { it.price }
+                        val basePrice = if (item.price > totalExtrasPrice) item.price - totalExtrasPrice else item.price
+
                         Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                            // RIGA PRODOTTO
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("${item.quantity}x ${item.name}", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                                Text("€ ${String.format("%.2f", item.price)}", fontSize = 14.sp)
+                                Text("€ ${String.format("%.2f", basePrice)}", fontSize = 14.sp, color = Color.Gray)
                             }
                             
                             // Attributi selezionati (es. Formato, Dimensione)
                             if (item.orderAttributes.isNotEmpty()) {
                                 item.orderAttributes.forEach { attr ->
-                                    Text(
-                                        text = "${attr.attributeName}: ${attr.valueName}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color.Gray,
-                                        modifier = Modifier.padding(start = 8.dp)
-                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(start = 12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = "${attr.attributeName}: ${attr.valueName}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color.Gray
+                                        )
+                                        if (attr.price > 0) {
+                                            Text(
+                                                text = "€ ${String.format("%.2f", attr.price)}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Color.Gray
+                                            )
+                                        }
+                                    }
                                 }
                             }
 
+                            // Ingredienti rimossi
                             item.removedIngredients.forEach { ing ->
-                                Text("  - Senza: ${ing.name}", fontSize = 12.sp, color = Color(0xFFEF5350))
+                                Text("  - Senza: ${ing.name}", fontSize = 12.sp, color = Color(0xFFEF5350).copy(alpha = 0.7f))
                             }
+
+                            // Aggiunte Extra
                             item.addedExtras.forEach { ext ->
-                                Text("  + Extra: ${ext.name}", fontSize = 12.sp, color = Color(0xFF4CAF50))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(start = 12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("  + Extra: ${ext.name}", fontSize = 12.sp, color = Color(0xFF4CAF50))
+                                    if ((ext.price ?: 0.0) > 0) {
+                                        Text(
+                                            text = "€ ${String.format("%.2f", ext.price)}",
+                                            fontSize = 12.sp,
+                                            color = Color(0xFF4CAF50).copy(alpha = 0.8f)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
