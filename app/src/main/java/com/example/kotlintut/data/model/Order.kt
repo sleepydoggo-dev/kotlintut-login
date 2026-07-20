@@ -10,5 +10,6 @@ data class Order(
     val id: Int,
     val date: String,
     val total: Double,
+    val status: String,
     val items: List<CartItem>
 )

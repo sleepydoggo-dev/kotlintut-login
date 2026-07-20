@@ -434,6 +434,13 @@ fun OrderRowWithDetails(order: Order, language: String, onReorder: () -> Unit) {
     val translate = remember(language) { { key: String -> Locales.getString(key, language) } }
     var expanded by remember { mutableStateOf(false) }
 
+    val statusColor = when (order.status.uppercase()) {
+        "PAGATO", "PRONTO", "CONSEGNATO" -> Color(0xFF4CAF50) // Verde
+        "DA PAGARE", "IN ATTESA" -> Color(0xFFFF9800) // Arancione
+        "ANNULLATO", "ERRORE" -> Color.Red
+        else -> MaterialTheme.colorScheme.primary
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).clickable { expanded = !expanded }
     ) {
@@ -442,6 +449,15 @@ fun OrderRowWithDetails(order: Order, language: String, onReorder: () -> Unit) {
                 Column {
                     Text(order.date, fontWeight = FontWeight.Bold)
                     Text("${translate("order_id")}${order.id}", fontSize = 12.sp, color = Color.Gray)
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    Text(
+                        text = order.status,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Black,
+                        color = statusColor
+                    )
                 }
                 Text("€ ${String.format("%.2f", order.total)}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             }

@@ -655,7 +655,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                     val date = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ORDER_DATE))
                     val total = cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_ORDER_TOTAL))
                     val items = getOrderItems(id)
-                    orders.add(Order(id, date, total, items))
+                    orders.add(Order(id, date, total, "In elaborazione", items))
                 } while (cursor.moveToNext())
             }
         }

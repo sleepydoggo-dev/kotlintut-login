@@ -140,3 +140,23 @@ data class NetworkIva(
     @com.google.gson.annotations.SerializedName("_id") val id: String,
     @com.google.gson.annotations.SerializedName("aliquota") val aliquota: String
 )
+
+/** Modello per l'ordine ricevuto dal server */
+data class NetworkOrder(
+    @SerializedName("_id") val id: String,
+    @SerializedName("data") val date: String,
+    @SerializedName("totale") val total: Double,
+    @SerializedName("stato") val status: String? = null,
+    @SerializedName("prodotti") val items: List<com.example.kotlintut.data.model.CartItem>
+)
+
+/** Estensione per mappare NetworkOrder verso il modello di dominio Order */
+fun NetworkOrder.toDomain(): com.example.kotlintut.data.model.Order {
+    return com.example.kotlintut.data.model.Order(
+        id = this.id.hashCode(), // Conversione sicura da String a Int
+        date = this.date,
+        total = this.total,
+        status = this.status ?: "In elaborazione",
+        items = this.items
+    )
+}

@@ -27,4 +27,8 @@ interface ApiService {
     /** Effettua il login dell'utente. */
     @POST("login")
     suspend fun loginUser(@Body request: LoginRequest): retrofit2.Response<LoginResponse>
+
+    /** Recupera lo storico degli ordini dell'utente. */
+    @retrofit2.http.GET("ordini")
+    suspend fun getOrders(): retrofit2.Response<List<NetworkOrder>>
 }

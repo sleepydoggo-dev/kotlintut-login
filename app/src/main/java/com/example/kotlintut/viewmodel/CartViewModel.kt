@@ -11,6 +11,8 @@ import com.example.kotlintut.data.model.Product
 import com.example.kotlintut.data.network.NetworkExtra
 import com.example.kotlintut.data.network.NetworkIngredient
 import com.example.kotlintut.data.network.OrderPayload
+import com.example.kotlintut.data.network.RetrofitClient
+import com.example.kotlintut.data.network.toDomain
 import com.google.gson.Gson
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -163,12 +165,45 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Recupera la cronologia di tutti gli ordini effettuati dall'utente specificato. */
+    /** Recupera la cronologia di tutti gli ordini effettuati dall'utente loggato chiamando le API del backend. */
     fun loadOrders(username: String) {
-        _uiState.update { it.copy(isLoading = true) }
-        viewModelScope.launch {
-            val orders = dbHelper.getOrdersByUser(username)
-            _uiState.update { it.copy(orders = orders, isLoading = false) }
+        _uiState.update { it.copy(isLoading = true, orderError = null) }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                // RetrofitClient.instance gestisce già gli header con userId e token
+                val response = RetrofitClient.instance.getOrders()
+                
+                if (response.isSuccessful) {
+                    val networkOrders = response.body() ?: emptyList()
+                    
+                    // Logga il JSON della risposta per debug
+                    val gsonPretty = com.google.gson.GsonBuilder().setPrettyPrinting().create()
+                    val jsonResponse = gsonPretty.toJson(networkOrders)
+                    android.util.Log.d("TOTEM_API", "=== STORICO ORDINI DAL SERVER ===\n$jsonResponse")
+
+                    // Mappa gli ordini di rete nel modello di dominio Order
+                    val domainOrders = networkOrders.map { it.toDomain() }
+                    
+                    _uiState.update { 
+                        it.copy(
+                            orders = domainOrders, 
+                            isLoading = false 
+                        ) 
+                    }
+                    android.util.Log.d("CartViewModel", "Storico ordini caricato con successo: ${domainOrders.size} ordini")
+                } else {
+                    val errorBody = response.errorBody()?.string() ?: "Errore sconosciuto"
+                    android.util.Log.e("CartViewModel", "Errore caricamento ordini (${response.code()}): $errorBody")
+                    _uiState.update { it.copy(isLoading = false, orderError = "Errore server (${response.code()})") }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("CartViewModel", "Errore di rete durante il recupero degli ordini", e)
+                _uiState.update { it.copy(isLoading = false, orderError = "Errore di rete: ${e.message}") }
+                
+                // Fallback locale in caso di errore di rete
+                val localOrders = dbHelper.getOrdersByUser(username)
+                _uiState.update { it.copy(orders = localOrders) }
+            }
         }
     }
     
