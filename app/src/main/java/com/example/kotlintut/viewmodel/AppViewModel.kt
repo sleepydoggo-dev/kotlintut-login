@@ -14,7 +14,8 @@ import kotlinx.coroutines.flow.update
 data class AppUiState(
     val isDarkMode: Boolean? = null, // null means use system theme
     val language: String = "IT", // IT, EN
-    val isReady: Boolean = false
+    val isReady: Boolean = false,
+    val deepLinkOrderId: String? = null
 ) {
     fun getString(key: String): String {
         return Locales.getString(key, language)
@@ -54,5 +55,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             prefs.edit().putString("LANGUAGE", lang).apply()
             _uiState.update { it.copy(language = lang) }
         }
+    }
+
+    /** Gestione Deep Link da notifiche */
+    fun setDeepLinkOrderId(id: String?) {
+        _uiState.update { it.copy(deepLinkOrderId = id) }
+    }
+
+    fun clearDeepLinkOrderId() {
+        _uiState.update { it.copy(deepLinkOrderId = null) }
     }
 }

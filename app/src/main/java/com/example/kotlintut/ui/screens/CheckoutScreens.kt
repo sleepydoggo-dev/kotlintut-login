@@ -375,7 +375,7 @@ fun OrderTrackingScreen(
 fun OrderHistoryScreen(
     orders: List<Order>,
     language: String,
-    onReorder: (List<CartItem>) -> Unit,
+    onNavigateToDetails: (String) -> Unit,
     onBack: () -> Unit
 ) {
     val translate = remember(language) { { key: String -> Locales.getString(key, language) } }
@@ -421,18 +421,21 @@ fun OrderHistoryScreen(
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
                 items(orders, key = { it.id }) { order ->
-                    OrderRowWithDetails(order = order, language = language, onReorder = { onReorder(order.items) })
+                    OrderRowWithDetails(
+                        order = order, 
+                        language = language, 
+                        onNavigateToDetails = { onNavigateToDetails(order.id.toString()) }
+                    )
                 }
             }
         }
     }
 }
 
-/** Riga della cronologia ordini che può essere espansa per visualizzare i dettagli dei prodotti inclusi e le loro personalizzazioni. */
+/** Riga della cronologia ordini semplificata. */
 @Composable
-fun OrderRowWithDetails(order: Order, language: String, onReorder: () -> Unit) {
+fun OrderRowWithDetails(order: Order, language: String, onNavigateToDetails: () -> Unit) {
     val translate = remember(language) { { key: String -> Locales.getString(key, language) } }
-    var expanded by remember { mutableStateOf(false) }
 
     val statusColor = when (order.status.uppercase()) {
         "PAGATO", "PRONTO", "CONSEGNATO" -> Color(0xFF4CAF50) // Verde
@@ -442,7 +445,7 @@ fun OrderRowWithDetails(order: Order, language: String, onReorder: () -> Unit) {
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).clickable { expanded = !expanded }
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).clickable { onNavigateToDetails() }
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -474,87 +477,19 @@ fun OrderRowWithDetails(order: Order, language: String, onReorder: () -> Unit) {
                         color = statusColor
                     )
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("€ ${String.format("%.2f", order.total)}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                    Icon(
-                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-                }
+                Text("€ ${String.format("%.2f", order.total)}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             }
             
-            AnimatedVisibility(visible = expanded) {
-                Column(modifier = Modifier.padding(top = 16.dp)) {
-                    order.items.forEach { item ->
-                        // Calcoliamo il prezzo base sottraendo extra e attributi se inclusi
-                        val totalExtrasPrice = item.addedExtras.sumOf { it.price ?: 0.0 } + 
-                                             item.orderAttributes.sumOf { it.price }
-                        val basePrice = if (item.price > totalExtrasPrice) item.price - totalExtrasPrice else item.price
-
-                        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                            // RIGA PRODOTTO
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("${item.quantity}x ${item.name}", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                                Text("€ ${String.format("%.2f", basePrice)}", fontSize = 14.sp, color = Color.Gray)
-                            }
-                            
-                            // Attributi selezionati (es. Formato, Dimensione)
-                            if (item.orderAttributes.isNotEmpty()) {
-                                item.orderAttributes.forEach { attr ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().padding(start = 12.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            text = "${attr.attributeName}: ${attr.valueName}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = Color.Gray
-                                        )
-                                        if (attr.price > 0) {
-                                            Text(
-                                                text = "€ ${String.format("%.2f", attr.price)}",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = Color.Gray
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Ingredienti rimossi
-                            item.removedIngredients.forEach { ing ->
-                                Text("  - Senza: ${ing.name}", fontSize = 12.sp, color = Color(0xFFEF5350).copy(alpha = 0.7f))
-                            }
-
-                            // Aggiunte Extra
-                            item.addedExtras.forEach { ext ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(start = 12.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text("  + Extra: ${ext.name}", fontSize = 12.sp, color = Color(0xFF4CAF50))
-                                    if ((ext.price ?: 0.0) > 0) {
-                                        Text(
-                                            text = "€ ${String.format("%.2f", ext.price)}",
-                                            fontSize = 12.sp,
-                                            color = Color(0xFF4CAF50).copy(alpha = 0.8f)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    OutlinedButton(
-                        onClick = onReorder,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.Refresh, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(translate("reorder"))
-                    }
-                }
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Button(
+                onClick = onNavigateToDetails,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+            ) {
+                Icon(Icons.Default.List, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(translate("show_details"))
             }
         }
     }

@@ -41,6 +41,9 @@ sealed class Screen(val route: String) {
     object Payment : Screen("payment")
     object OrderTracking : Screen("order_tracking")
     object OrderHistory : Screen("order_history")
+    object OrderDetail : Screen("order_detail/{orderId}") {
+        fun createRoute(orderId: String) = "order_detail/$orderId"
+    }
     object Segnaposto : Screen("segnaposto_screen")
 }
 
@@ -72,6 +75,22 @@ fun AppNavigation(
             productViewModel.loadFavorites()
         } ?: run {
             productViewModel.loadFavorites() // Refresh for guest (clear)
+        }
+    }
+
+    // Handle Deep Linking from Notification
+    LaunchedEffect(appState.deepLinkOrderId) {
+        appState.deepLinkOrderId?.let { orderId ->
+            // Assicuriamoci che gli ordini siano caricati prima di navigare
+            if (authState.loggedUser != null && cartState.orders.isEmpty()) {
+                cartViewModel.loadOrders(authState.loggedUser!!)
+            }
+            
+            navController.navigate(Screen.OrderDetail.createRoute(orderId)) {
+                // Puliamo lo stack se necessario
+                launchSingleTop = true
+            }
+            appViewModel.clearDeepLinkOrderId()
         }
     }
 
@@ -345,11 +364,27 @@ fun AppNavigation(
                 OrderHistoryScreen(
                     orders = cartState.orders,
                     language = appState.language,
-                    onReorder = { items ->
-                        cartViewModel.reorder(authState.loggedUser, items)
-                        navController.navigate(Screen.Cart.route)
+                    onNavigateToDetails = { orderId ->
+                        navController.navigate(Screen.OrderDetail.createRoute(orderId))
                     },
                     onBack = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = Screen.OrderDetail.route,
+                arguments = listOf(navArgument("orderId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
+                OrderDetailsScreen(
+                    orderId = orderId,
+                    viewModel = cartViewModel,
+                    authViewModel = authViewModel,
+                    language = appState.language,
+                    onBack = { navController.popBackStack() },
+                    onReorder = { order ->
+                        cartViewModel.reorder(authState.loggedUser, order.items)
+                        navController.navigate(Screen.Cart.route)
+                    }
                 )
             }
             composable(Screen.Segnaposto.route) {

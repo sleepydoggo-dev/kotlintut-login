@@ -233,6 +233,18 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Cerca un ordine nella lista caricata per ID, Numero Ordine o ID Remoto */
+    fun getOrderById(id: String): Order? {
+        val order = _uiState.value.orders.find { 
+            it.id.toString() == id || it.orderNumber == id
+        }
+        
+        if (order == null) {
+            android.util.Log.w("TOTEM_API", "Ordine con ID/Numero $id non trovato nella lista attuale (${_uiState.value.orders.size} ordini)")
+        }
+        return order
+    }
+
     /** Permette di riaggiungere al carrello tutti i prodotti di un ordine passato, rispettando le personalizzazioni originali. */
     fun reorder(username: String?, orderItems: List<CartItem>) {
         val currentItems = _uiState.value.items.toMutableList()
