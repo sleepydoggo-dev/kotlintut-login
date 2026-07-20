@@ -8,6 +8,7 @@ import androidx.compose.runtime.Immutable
 @Immutable
 data class Order(
     val id: Int,
+    val remoteId: String = "",
     val orderNumber: String,
     val date: String,
     val total: Double,

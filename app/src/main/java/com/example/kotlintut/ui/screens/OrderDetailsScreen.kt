@@ -39,7 +39,9 @@ fun OrderDetailsScreen(
     val cartState by viewModel.uiState.collectAsStateWithLifecycle()
 
     // 2. Cerchiamo l'ordine direttamente dalla lista osservata, non tramite chiamata statica
-    val order = cartState.orders.find { it.id.toString() == orderId || it.orderNumber == orderId }
+    val order = cartState.orders.find { 
+        it.remoteId == orderId || it.orderNumber == orderId || it.id.toString() == orderId 
+    }
 
     // Se l'ordine non c'è e la lista è vuota (es. apertura app da notifica), scarichiamo lo storico
     LaunchedEffect(orderId) {

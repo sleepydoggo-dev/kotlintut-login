@@ -16,7 +16,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
 
     companion object {
         private const val DATABASE_NAME = "RistoranteTotem_Compose.db"
-        private const val DATABASE_VERSION = 13
+        private const val DATABASE_VERSION = 14
 
         const val TABLE_USERS = "utenti"
         const val COLUMN_USER_ID = "id"
@@ -66,6 +66,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         const val COLUMN_ORDER_DATE = "data"
         const val COLUMN_ORDER_TOTAL = "totale"
         const val COLUMN_ORDER_NUMBER = "order_number"
+        const val COLUMN_ORDER_REMOTE_ID = "remote_id"
 
         const val TABLE_ORDER_ITEMS = "ordini_dettagli"
         const val COLUMN_ITEM_ID = "id"
@@ -166,7 +167,8 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                 $COLUMN_ORDER_USER TEXT,
                 $COLUMN_ORDER_DATE TEXT,
                 $COLUMN_ORDER_TOTAL REAL,
-                $COLUMN_ORDER_NUMBER TEXT
+                $COLUMN_ORDER_NUMBER TEXT,
+                $COLUMN_ORDER_REMOTE_ID TEXT
             )
         """.trimIndent())
 
@@ -240,6 +242,14 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                 db.execSQL("ALTER TABLE $TABLE_ORDERS ADD COLUMN $COLUMN_ORDER_NUMBER TEXT")
             } catch (e: Exception) {
                 android.util.Log.e("DatabaseHelper", "Errore upgrade V13: ${e.message}")
+            }
+        }
+
+        if (oldVersion < 14) {
+            try {
+                db.execSQL("ALTER TABLE $TABLE_ORDERS ADD COLUMN $COLUMN_ORDER_REMOTE_ID TEXT")
+            } catch (e: Exception) {
+                android.util.Log.e("DatabaseHelper", "Errore upgrade V14: ${e.message}")
             }
         }
         
@@ -634,6 +644,8 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
             put(COLUMN_ORDER_TOTAL, total)
             put(COLUMN_ORDER_DATE, date)
             put(COLUMN_ORDER_NUMBER, orderNumber)
+            // Nota: Se questa funzione viene chiamata da un punto che non ha il remoteId, rimarrà vuoto
+            // ma il mapping da server lo popolerà correttamente.
         }
         val orderId = db.insert(TABLE_ORDERS, null, orderValues)
         if (orderId != -1L) {
@@ -663,11 +675,12 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
             if (cursor.moveToFirst()) {
                 do {
                     val id = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ORDER_ID))
+                    val remoteId = try { cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ORDER_REMOTE_ID)) } catch (e: Exception) { "" } ?: ""
                     val orderNum = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ORDER_NUMBER)) ?: id.toString()
                     val date = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ORDER_DATE))
                     val total = cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_ORDER_TOTAL))
                     val items = getOrderItems(id)
-                    orders.add(Order(id, orderNum, date, total, "In elaborazione", "tavolo", "", items))
+                    orders.add(Order(id, remoteId, orderNum, date, total, "In elaborazione", "tavolo", "", items))
                 } while (cursor.moveToNext())
             }
         }

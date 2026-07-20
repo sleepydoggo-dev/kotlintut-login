@@ -193,6 +193,7 @@ fun NetworkOrder.toDomain(): com.example.kotlintut.data.model.Order {
 
     return com.example.kotlintut.data.model.Order(
         id = this.id.hashCode(),
+        remoteId = this.id,
         orderNumber = extractedOrderNumber,
         date = formattedDate,
         total = this.total,
