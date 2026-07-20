@@ -8,6 +8,8 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -15,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.kotlintut.data.model.Order
 import com.example.kotlintut.ui.components.TotemTopBar
 import com.example.kotlintut.ui.theme.Locales
@@ -31,11 +34,16 @@ fun OrderDetailsScreen(
     onReorder: (Order) -> Unit
 ) {
     val translate = remember(language) { { key: String -> Locales.getString(key, language) } }
-    val order = viewModel.getOrderById(orderId)
 
-    // Se l'ordine non è stato trovato (es. da notifica push su app appena aperta), carichiamo lo storico
-    androidx.compose.runtime.LaunchedEffect(orderId) {
-        if (order == null) {
+    // 1. Osserviamo lo stato del ViewModel in modo reattivo
+    val cartState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // 2. Cerchiamo l'ordine direttamente dalla lista osservata, non tramite chiamata statica
+    val order = cartState.orders.find { it.id.toString() == orderId || it.orderNumber == orderId }
+
+    // Se l'ordine non c'è e la lista è vuota (es. apertura app da notifica), scarichiamo lo storico
+    LaunchedEffect(orderId) {
+        if (order == null && cartState.orders.isEmpty()) {
             val user = authViewModel.uiState.value.loggedUser
             if (user != null) {
                 viewModel.loadOrders(user)
@@ -55,6 +63,7 @@ fun OrderDetailsScreen(
         }
     ) { padding ->
         if (order == null) {
+            // Se sta caricando o non l'ha trovato, mostra un feedback (puoi anche mettere un CircularProgressIndicator qui)
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Text(translate("no_orders"), color = Color.Gray)
             }
@@ -74,14 +83,14 @@ fun OrderDetailsScreen(
                         if (order.numeroSegnaPosto.isNotBlank()) {
                             Text("📍 Tavolo ${order.numeroSegnaPosto}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        
+
                         val statusColor = when (order.status.uppercase()) {
                             "PAGATO", "PRONTO", "CONSEGNATO" -> Color(0xFF4CAF50)
                             "DA PAGARE", "IN ATTESA" -> Color(0xFFFF9800)
                             "ANNULLATO", "ERRORE" -> Color.Red
                             else -> MaterialTheme.colorScheme.primary
                         }
-                        
+
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(order.status, fontWeight = FontWeight.Black, color = statusColor)
                     }
@@ -93,8 +102,8 @@ fun OrderDetailsScreen(
 
                 LazyColumn(modifier = Modifier.weight(1f)) {
                     items(order.items) { item ->
-                        val totalExtrasPrice = item.addedExtras.sumOf { it.price ?: 0.0 } + 
-                                             item.orderAttributes.sumOf { it.price }
+                        val totalExtrasPrice = item.addedExtras.sumOf { it.price ?: 0.0 } +
+                                item.orderAttributes.sumOf { it.price }
                         val basePrice = if (item.price > totalExtrasPrice) item.price - totalExtrasPrice else item.price
 
                         Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
