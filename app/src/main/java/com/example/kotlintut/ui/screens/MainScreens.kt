@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -40,6 +41,18 @@ import com.example.kotlintut.data.network.NetworkExtra
 import com.example.kotlintut.data.network.NetworkIngredient
 import com.example.kotlintut.data.network.NetworkOption
 import com.example.kotlintut.ui.components.TotemTopBar
+
+/** Helper per calcolare il numero di colonne della griglia in base alla larghezza dello schermo */
+@Composable
+fun calculateGridColumns(): Int {
+    val configuration = LocalConfiguration.current
+    return when {
+        configuration.screenWidthDp >= 1200 -> 6 // Monitor grandi / Tablet XL landscape
+        configuration.screenWidthDp >= 840 -> 4  // Tablet landscape / Tablet grande portrait
+        configuration.screenWidthDp >= 600 -> 3  // Tablet piccolo portrait / Smartphone landscape
+        else -> 2 // Smartphone portrait standard
+    }
+}
 
 /**
  * Categories Screen - Displays the list of available food categories.
@@ -84,8 +97,9 @@ fun CategoriesScreen(
         Column(modifier = Modifier.padding(padding)) {
             ScreenTitle(text = title)
 
+            val columns = calculateGridColumns()
             LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
+                columns = GridCells.Fixed(columns),
                 modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
@@ -160,8 +174,9 @@ fun ProductsScreen(
                 if (targetProducts.isEmpty()) {
                     EmptyState(message = noProductsLabel)
                 } else {
+                    val columns = calculateGridColumns()
                     LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
+                        columns = GridCells.Fixed(columns),
                         modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
                         contentPadding = PaddingValues(bottom = 16.dp)
                     ) {

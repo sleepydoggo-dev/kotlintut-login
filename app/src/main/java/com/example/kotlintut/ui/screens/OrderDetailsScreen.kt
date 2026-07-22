@@ -82,9 +82,11 @@ fun OrderDetailsScreen(
                             Text("€ ${String.format("%.2f", order.total)}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Black, fontSize = 20.sp)
                         }
                         Text("${translate("order_id")}${order.orderNumber}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        /* Commentato Numero Segnaposto nei dettagli
                         if (order.numeroSegnaPosto.isNotBlank()) {
                             Text("📍 Tavolo ${order.numeroSegnaPosto}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
+                        */
 
                         val statusColor = when (order.status.uppercase()) {
                             "PAGATO", "PRONTO", "CONSEGNATO" -> Color(0xFF4CAF50)

@@ -295,7 +295,7 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun sendOrderToServer(segnaposto: String) {
+    fun sendOrderToServer(segnaposto: String = "") {
         val currentState = _uiState.value
         val userId = prefs.getString("USER_ID", null)
         val authToken = prefs.getString("AUTH_TOKEN", null)

@@ -45,8 +45,20 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             android.util.Log.d("AuthViewModel", "Dati mock rilevati e rimossi")
         }
         
-        // Auto-login rimosso come richiesto. 
-        // L'utente deve loggarsi manualmente ogni volta.
+        // Auto-login: se abbiamo uno username e un token salvati, ripristiniamo lo stato
+        val savedUsername = prefs.getString("LOGGED_USERNAME", null)
+        val savedToken = prefs.getString("AUTH_TOKEN", null)
+        
+        if (!savedUsername.isNullOrBlank() && !savedToken.isNullOrBlank() && !savedUserId.isNullOrBlank()) {
+            android.util.Log.d("AuthViewModel", "Ripristino sessione automatica per: $savedUsername")
+            _uiState.update { 
+                it.copy(
+                    loggedUser = savedUsername,
+                    userId = savedUserId,
+                    isLoginSuccessful = true
+                ) 
+            }
+        }
     }
 
     /**

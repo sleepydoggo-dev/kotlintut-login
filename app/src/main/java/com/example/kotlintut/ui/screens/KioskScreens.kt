@@ -45,7 +45,7 @@ fun SegnapostoScreen(
             verticalArrangement = Arrangement.Center
         ) {
             if (!isConfirmed) {
-                // Fase 1: Inserimento Segnaposto
+                /* Fase 1: Inserimento Segnaposto (Commentata)
                 Text(
                     "Inserisci il numero del tuo tavolo o segnaposto",
                     fontSize = 20.sp,
@@ -87,6 +87,24 @@ fun SegnapostoScreen(
                         enabled = segnaposto.isNotBlank()
                     ) {
                         Text("CONFERMA ORDINE", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                */
+                
+                // Visualizzazione durante il caricamento diretto
+                if (isLoading) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Invio ordine in corso...")
+                } else if (error != null) {
+                    Text(
+                        text = "Errore durante l'invio: $error",
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(onClick = onBackToHome) {
+                        Text("TORNA AL CARRELLO")
                     }
                 }
             } else {

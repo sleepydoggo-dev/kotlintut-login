@@ -64,6 +64,11 @@ fun AppNavigation(
     val productState by productViewModel.uiState.collectAsStateWithLifecycle()
     val cartState by cartViewModel.uiState.collectAsStateWithLifecycle()
 
+    // Determiniamo la destinazione iniziale solo una volta al primo avvio
+    val startDestination = remember {
+        if (authViewModel.uiState.value.loggedUser != null) Screen.Categories.route else Screen.AuthGateway.route
+    }
+
     // Sync state
     LaunchedEffect(appState.language) {
         productViewModel.updateLanguage(appState.language)
@@ -93,6 +98,14 @@ fun AppNavigation(
             appViewModel.clearDeepLinkOrderId()
         }
     }
+
+    /* Commentato Segnaposto
+    LaunchedEffect(cartState.orderConfirmationNumber) {
+        if (cartState.orderConfirmationNumber.isNotBlank()) {
+            navController.navigate(Screen.OrderTracking.route)
+        }
+    }
+    */
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -152,7 +165,7 @@ fun AppNavigation(
     ) {
         NavHost(
             navController = navController,
-            startDestination = Screen.AuthGateway.route,
+            startDestination = startDestination,
             enterTransition = { 
                 slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(400)) + fadeIn(animationSpec = tween(400)) 
             },
@@ -317,6 +330,10 @@ fun AppNavigation(
                     onRemoveItem = { item -> cartViewModel.removeItem(authState.loggedUser, item) },
                     onCheckoutClick = {
                         // In modalità Chiosco navighiamo direttamente al segnaposto
+                        // navController.navigate(Screen.Segnaposto.route)
+                        
+                        // Modifica: Invio ordine diretto senza segnaposto
+                        cartViewModel.sendOrderToServer("")
                         navController.navigate(Screen.Segnaposto.route)
                     },
                     onBack = { navController.popBackStack() }
@@ -387,6 +404,7 @@ fun AppNavigation(
                     }
                 )
             }
+            /* Commentata rotta Segnaposto
             composable(Screen.Segnaposto.route) {
                 SegnapostoScreen(
                     isLoading = cartState.isLoading,
@@ -395,6 +413,23 @@ fun AppNavigation(
                     onConfirm = { segnaposto ->
                         cartViewModel.sendOrderToServer(segnaposto)
                     },
+                    onBackToHome = {
+                        cartViewModel.resetOrderConfirmation()
+                        navController.navigate(Screen.Categories.route) {
+                            popUpTo(Screen.Categories.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
+            */
+            
+            // Nuova gestione Segnaposto (solo conferma)
+            composable(Screen.Segnaposto.route) {
+                com.example.kotlintut.ui.screens.SegnapostoScreen(
+                    isLoading = cartState.isLoading,
+                    confirmationNumber = cartState.orderConfirmationNumber,
+                    error = cartState.orderError,
+                    onConfirm = { /* Inibito */ },
                     onBackToHome = {
                         cartViewModel.resetOrderConfirmation()
                         navController.navigate(Screen.Categories.route) {
