@@ -114,7 +114,13 @@ fun CategoriesScreen(
                         enter = fadeIn(animationSpec = tween(300, delayMillis = index * 50)) +
                                 scaleIn(initialScale = 0.8f, animationSpec = tween(300, delayMillis = index * 50))
                     ) {
-                        CategoryCard(category = category.name ?: "", label = label) { onCategoryClick(category) }
+                        CategoryCard(
+                            category = category.name ?: "",
+                            label = label,
+                            imageUrl = category.imageUrl ?: ""
+                        ) { 
+                            onCategoryClick(category) 
+                        }
                     }
                 }
             }
@@ -332,7 +338,7 @@ private fun ScreenTitle(text: String) {
 
 /** Card cliccabile che rappresenta una singola categoria con animazione al tocco. */
 @Composable
-private fun CategoryCard(category: String, label: String, onClick: () -> Unit) {
+private fun CategoryCard(category: String, label: String, imageUrl: String, onClick: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -364,7 +370,19 @@ private fun CategoryCard(category: String, label: String, onClick: () -> Unit) {
                     .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Text(category.take(1), fontSize = 48.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                if (imageUrl.isNotEmpty()) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(imageUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = label,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Text(category.take(1), fontSize = 48.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                }
             }
             Text(
                 text = label,
@@ -405,10 +423,7 @@ fun ProductCard(product: Product, onClick: () -> Unit) {
             modifier = Modifier.fillMaxSize()
         ) {
             val context = LocalContext.current
-            val imageResId = remember(product.imageKey) {
-                context.resources.getIdentifier(product.imageKey, "drawable", context.packageName)
-            }
-
+            
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -416,12 +431,11 @@ fun ProductCard(product: Product, onClick: () -> Unit) {
                     .background(MaterialTheme.colorScheme.secondaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                if (imageResId != 0) {
+                if (!product.imageKey.isNullOrEmpty()) {
                     AsyncImage(
                         model = ImageRequest.Builder(context)
-                            .data(imageResId)
+                            .data(product.imageKey)
                             .crossfade(true)
-                            .size(300, 300) // Optimization: Downsample large images
                             .build(),
                         contentDescription = product.name,
                         modifier = Modifier.fillMaxSize(),
@@ -496,9 +510,6 @@ private fun ProductHeaderImage(
     onFavoriteToggle: () -> Unit
 ) {
     val context = LocalContext.current
-    val imageResId = remember(product.imageKey) {
-        context.resources.getIdentifier(product.imageKey, "drawable", context.packageName)
-    }
 
     Box(modifier = Modifier.fillMaxWidth()) {
         Box(
@@ -508,10 +519,10 @@ private fun ProductHeaderImage(
                 .background(MaterialTheme.colorScheme.secondaryContainer),
             contentAlignment = Alignment.Center
         ) {
-            if (imageResId != 0) {
+            if (!product.imageKey.isNullOrEmpty()) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data(imageResId)
+                        .data(product.imageKey)
                         .crossfade(true)
                         .build(),
                     contentDescription = product.name,

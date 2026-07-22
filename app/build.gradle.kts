@@ -65,5 +65,7 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     implementation("com.onesignal:OneSignal:[5.6.1, 5.9.99]")
+    implementation("com.stripe:stripe-android:23.13.0")
+
 
 }

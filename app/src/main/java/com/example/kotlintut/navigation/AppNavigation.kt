@@ -1,5 +1,6 @@
 package com.example.kotlintut.navigation
 
+import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -38,7 +39,8 @@ sealed class Screen(val route: String) {
     object Options : Screen("options")
     object Cart : Screen("cart")
     object GuestContact : Screen("guest_contact")
-    object Payment : Screen("payment")
+    object PaymentMethodSelection : Screen("payment_method_selection")
+    object StripePayment : Screen("stripe_payment") // Nuova rotta Stripe
     object OrderTracking : Screen("order_tracking")
     object OrderHistory : Screen("order_history")
     object OrderDetail : Screen("order_detail/{orderId}") {
@@ -329,12 +331,8 @@ fun AppNavigation(
                     onQuantityChange = { item, delta -> cartViewModel.updateQuantity(authState.loggedUser, item, delta) },
                     onRemoveItem = { item -> cartViewModel.removeItem(authState.loggedUser, item) },
                     onCheckoutClick = {
-                        // In modalità Chiosco navighiamo direttamente al segnaposto
-                        // navController.navigate(Screen.Segnaposto.route)
-                        
-                        // Modifica: Invio ordine diretto senza segnaposto
-                        cartViewModel.sendOrderToServer("")
-                        navController.navigate(Screen.Segnaposto.route)
+                        // Navighiamo alla selezione del metodo di pagamento
+                        navController.navigate(Screen.PaymentMethodSelection.route)
                     },
                     onBack = { navController.popBackStack() }
                 )
@@ -346,25 +344,49 @@ fun AppNavigation(
                     language = appState.language,
                     onNameChange = { cartViewModel.updateGuestInfo(it, cartState.guestEmail) },
                     onEmailChange = { cartViewModel.updateGuestInfo(cartState.guestName, it) },
-                    onContinue = { navController.navigate(Screen.Payment.route) },
+                    onContinue = { navController.navigate(Screen.PaymentMethodSelection.route) },
                     onBack = { navController.popBackStack() }
                 )
             }
-            composable(Screen.Payment.route) {
-                PaymentScreen(
-                    total = cartState.total,
-                    cardNumber = cartState.cardNumber,
-                    cardExpiry = cartState.cardExpiry,
-                    cardCvv = cartState.cardCvv,
-                    language = appState.language,
-                    onCardNumberChange = { cartViewModel.updatePaymentInfo(it, cartState.cardExpiry, cartState.cardCvv) },
-                    onCardExpiryChange = { cartViewModel.updatePaymentInfo(cartState.cardNumber, it, cartState.cardCvv) },
-                    onCardCvvChange = { cartViewModel.updatePaymentInfo(cartState.cardNumber, cartState.cardExpiry, it) },
-                    onConfirm = {
-                        cartViewModel.confirmOrder(authState.loggedUser ?: "Guest")
-                        navController.navigate(Screen.OrderTracking.route)
+            composable(Screen.PaymentMethodSelection.route) {
+                PaymentMethodScreen(
+                    methods = cartState.paymentMethods,
+                    isLoading = cartState.isLoading,
+                    onMethodSelect = { method ->
+                        if (method.nome.contains("Carta", ignoreCase = true) || method.nome.contains("Stripe", ignoreCase = true)) {
+                            navController.navigate(Screen.StripePayment.route)
+                        } else {
+                            // Contanti o altro: invio ordine diretto con stato DA PAGARE
+                            cartViewModel.sendOrderToServer(
+                                segnaposto = "",
+                                stato = "DA PAGARE",
+                                pagamento = method.nome,
+                                datiPagamento = null
+                            )
+                            navController.navigate(Screen.Segnaposto.route)
+                        }
                     },
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onLoadMethods = { cartViewModel.loadPaymentMethods() }
+                )
+            }
+            composable(Screen.StripePayment.route) {
+                com.example.kotlintut.ui.screens.PaymentScreen(
+                    importo = cartState.total,
+                    onPaymentSuccess = { paymentData ->
+                        // Invia l'ordine al server come PAGATO con metodo STRIPE e i dati completi del pagamento
+                        cartViewModel.sendOrderToServer(
+                            segnaposto = "",
+                            stato = "PAGATO",
+                            pagamento = "stripe",
+                            datiPagamento = paymentData
+                        ) 
+                        navController.navigate(Screen.Segnaposto.route)
+                    },
+                    onPaymentError = { error ->
+                        Log.e("Navigation", "Errore Pagamento Stripe: $error")
+                        // In caso di errore NON inviamo l'ordine e non svuotiamo il carrello
+                    }
                 )
             }
             composable(Screen.OrderTracking.route) {

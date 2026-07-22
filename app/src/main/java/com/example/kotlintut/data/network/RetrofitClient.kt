@@ -17,7 +17,25 @@ object RetrofitClient {
         prefs = context.applicationContext.getSharedPreferences("TOTEM_PREFS", Context.MODE_PRIVATE)
     }
 
-    private val logging = HttpLoggingInterceptor().apply {
+    private val logging = HttpLoggingInterceptor { message ->
+        if (message.startsWith("{") || message.startsWith("[")) {
+            try {
+                val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
+                val jsonElement = com.google.gson.JsonParser.parseString(message)
+                val prettyJson = gson.toJson(jsonElement)
+                android.util.Log.d("TOTEM_API", prettyJson)
+            } catch (e: Exception) {
+                android.util.Log.d("TOTEM_API", message)
+            }
+        } else if (message.startsWith("-->") || message.startsWith("<--")) {
+            // Logga l'inizio e la fine della chiamata (URL e status code)
+            android.util.Log.d("TOTEM_API", "--------------------------------------------------")
+            android.util.Log.d("TOTEM_API", message)
+        } else {
+            // Altri metadati (header, ecc.)
+            android.util.Log.d("TOTEM_API", message)
+        }
+    }.apply {
         level = HttpLoggingInterceptor.Level.BODY
     }
 

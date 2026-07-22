@@ -31,4 +31,27 @@ interface ApiService {
     /** Recupera lo storico degli ordini dell'utente. */
     @retrofit2.http.GET("ordini")
     suspend fun getOrders(): retrofit2.Response<List<NetworkOrder>>
+
+    /** Crea un PaymentIntent su Stripe tramite il backend. */
+    @POST("stripe")
+    suspend fun createStripePayment(@Body payload: Map<String, String>): retrofit2.Response<StripeResponse>
+
+    /** Annulla un pagamento Stripe. */
+    @POST("stripeAnnullaPagamento")
+    suspend fun cancelStripePayment(@Body payload: Map<String, String>): retrofit2.Response<Unit>
+
+    /** Recupera i metodi di pagamento attivi. */
+    @retrofit2.http.GET("pagamenti")
+    suspend fun getPaymentMethods(): retrofit2.Response<List<NetworkPaymentMethod>>
 }
+
+data class NetworkPaymentMethod(
+    @com.google.gson.annotations.SerializedName("_id") val id: String,
+    @com.google.gson.annotations.SerializedName("nome") val nome: String,
+    @com.google.gson.annotations.SerializedName("attivo") val attivo: Boolean
+)
+
+data class StripeResponse(
+    @com.google.gson.annotations.SerializedName("status") val status: String,
+    @com.google.gson.annotations.SerializedName("data") val data: com.google.gson.JsonObject
+)

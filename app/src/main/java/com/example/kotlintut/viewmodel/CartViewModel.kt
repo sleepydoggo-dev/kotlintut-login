@@ -36,7 +36,8 @@ data class CartUiState(
     val isLoading: Boolean = false,
     val isOrderConfirmed: Boolean = false,
     val orderConfirmationNumber: String? = null,
-    val orderError: String? = null
+    val orderError: String? = null,
+    val paymentMethods: List<com.example.kotlintut.data.network.NetworkPaymentMethod> = emptyList()
 ) {
     val total: Double get() = items.sumOf { it.getTotalPrice() }
     val itemCount: Int get() = items.sumOf { it.quantity }
@@ -282,7 +283,25 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Resetta lo stato di conferma dell'ordine per permettere una nuova navigazione pulita. */
     fun resetOrderConfirmation() {
-        _uiState.update { it.copy(isOrderConfirmed = false) }
+        _uiState.update { it.copy(isOrderConfirmed = false, orderConfirmationNumber = null) }
+    }
+
+    /** Carica i metodi di pagamento dal server. */
+    fun loadPaymentMethods() {
+        _uiState.update { it.copy(isLoading = true) }
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.instance.getPaymentMethods()
+                if (response.isSuccessful) {
+                    val methods = response.body() ?: emptyList()
+                    _uiState.update { it.copy(paymentMethods = methods.filter { m -> m.attivo }, isLoading = false) }
+                } else {
+                    _uiState.update { it.copy(isLoading = false) }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false) }
+            }
+        }
     }
     
     /** Svuota completamente il carrello corrente e rimuove i dati salvati nel database per l'utente. */
@@ -295,7 +314,12 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun sendOrderToServer(segnaposto: String = "") {
+    fun sendOrderToServer(
+        segnaposto: String = "",
+        stato: String = "DA PAGARE",
+        pagamento: String = " ",
+        datiPagamento: Any? = null
+    ) {
         val currentState = _uiState.value
         val userId = prefs.getString("USER_ID", null)
         val authToken = prefs.getString("AUTH_TOKEN", null)
@@ -324,6 +348,9 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
             ivaTotale = ivaTotale,
             totale = round(currentState.total),
             numeroSegnaPosto = segnaposto,
+            stato = stato,
+            pagamento = pagamento,
+            datiPagamento = datiPagamento,
             food = food,
             bevande = bevande
         )
@@ -368,6 +395,7 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
             jsonObject.addProperty("priorita", src.priorita)
             jsonObject.addProperty("numeroSegnaPosto", src.numeroSegnaPosto)
             jsonObject.addProperty("stato", src.stato)
+            jsonObject.add("datiPagamento", context.serialize(src.datiPagamento))
             jsonObject.add("bevande", context.serialize(src.bevande))
             jsonObject.add("food", context.serialize(src.food))
             jsonObject

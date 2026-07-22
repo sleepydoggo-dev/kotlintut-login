@@ -18,6 +18,7 @@ data class NetworkCategory(
     @SerializedName("categoriaPadre") val parentCategory: com.google.gson.JsonElement? = null,
     @SerializedName("posizionamento") val position: Int? = 0,
     @SerializedName("categoria") val name: String? = "",
+    @SerializedName("immagine") val imageUrl: String? = "",
     @SerializedName("visibile") val isVisible: Boolean? = true
 )
 

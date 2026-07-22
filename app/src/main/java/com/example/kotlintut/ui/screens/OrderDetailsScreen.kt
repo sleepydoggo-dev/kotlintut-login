@@ -1,16 +1,13 @@
 package com.example.kotlintut.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,6 +21,129 @@ import com.example.kotlintut.ui.theme.Locales
 import com.example.kotlintut.viewmodel.CartViewModel
 import com.example.kotlintut.viewmodel.AuthViewModel
 
+/**
+ * Schermata dello storico ordini dell'utente.
+ */
+@Composable
+fun OrderHistoryScreen(
+    orders: List<Order>,
+    language: String,
+    onNavigateToDetails: (String) -> Unit,
+    onBack: () -> Unit
+) {
+    val translate = remember(language) { { key: String -> Locales.getString(key, language) } }
+
+    Scaffold(
+        topBar = {
+            TotemTopBar(
+                title = translate("order_history"),
+                showMenu = false,
+                showBack = true,
+                onBackClick = onBack,
+                showCart = false
+            )
+        }
+    ) { padding ->
+        if (orders.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                Text(translate("no_orders"), color = Color.Gray)
+            }
+        } else {
+            Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+                Text(
+                    text = translate("order_history_info"),
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(16.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(orders) { order ->
+                        OrderItemRow(order, translate) {
+                            onNavigateToDetails(order.remoteId.ifBlank { order.orderNumber })
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun OrderItemRow(order: Order, translate: (String) -> String, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).clickable { onClick() },
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text("${translate("order_id")}${order.orderNumber}", fontWeight = FontWeight.Bold)
+                Text(order.date, fontSize = 12.sp, color = Color.Gray)
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text("€ ${String.format("%.2f", order.total)}", fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+                Text(order.status, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+/**
+ * Schermata di tracciamento dell'ordine in tempo reale.
+ */
+@Composable
+fun OrderTrackingScreen(
+    language: String,
+    onFinish: () -> Unit
+) {
+    val translate = remember(language) { { key: String -> Locales.getString(key, language) } }
+
+    Scaffold(
+        topBar = {
+            TotemTopBar(
+                title = translate("order_status"),
+                showMenu = false,
+                showBack = false,
+                showCart = false
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                Icons.Default.CheckCircle,
+                contentDescription = null,
+                modifier = Modifier.size(100.dp),
+                tint = Color(0xFF4CAF50)
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Text(translate("order_received"), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text("Stiamo preparando il tuo ordine", color = Color.Gray)
+            
+            Spacer(modifier = Modifier.height(48.dp))
+            
+            Button(
+                onClick = onFinish,
+                modifier = Modifier.fillMaxWidth().height(60.dp)
+            ) {
+                Text(translate("back_to_home"), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+/**
+ * Schermata di dettaglio di un singolo ordine.
+ */
 @Composable
 fun OrderDetailsScreen(
     orderId: String,
@@ -38,7 +158,7 @@ fun OrderDetailsScreen(
     // 1. Osserviamo lo stato del ViewModel in modo reattivo
     val cartState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // 2. Cerchiamo l'ordine direttamente dalla lista osservata, non tramite chiamata statica
+    // 2. Cerchiamo l'ordine direttamente dalla lista osservata
     val order = cartState.orders.find { 
         it.remoteId == orderId || it.orderNumber == orderId || it.id.toString() == orderId 
     }
@@ -65,7 +185,6 @@ fun OrderDetailsScreen(
         }
     ) { padding ->
         if (order == null) {
-            // Se sta caricando o non l'ha trovato, mostra un feedback (puoi anche mettere un CircularProgressIndicator qui)
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Text(translate("no_orders"), color = Color.Gray)
             }
@@ -82,11 +201,6 @@ fun OrderDetailsScreen(
                             Text("€ ${String.format("%.2f", order.total)}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Black, fontSize = 20.sp)
                         }
                         Text("${translate("order_id")}${order.orderNumber}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        /* Commentato Numero Segnaposto nei dettagli
-                        if (order.numeroSegnaPosto.isNotBlank()) {
-                            Text("📍 Tavolo ${order.numeroSegnaPosto}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        */
 
                         val statusColor = when (order.status.uppercase()) {
                             "PAGATO", "PRONTO", "CONSEGNATO" -> Color(0xFF4CAF50)
@@ -152,4 +266,4 @@ fun OrderDetailsScreen(
             }
         }
     }
-} //adsiad
+}

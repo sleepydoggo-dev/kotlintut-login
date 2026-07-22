@@ -32,6 +32,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         const val COLUMN_CAT_ID = "id"
         const val COLUMN_CAT_REMOTE_ID = "remote_id"
         const val COLUMN_CAT_NAME = "nome"
+        const val COLUMN_CAT_IMG_URL = "immagine_url"
 
         const val TABLE_PRODUCTS = "prodotti"
         const val COLUMN_PROD_ID = "id"
@@ -122,6 +123,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                 $COLUMN_CAT_ID INTEGER PRIMARY KEY AUTOINCREMENT,
                 $COLUMN_CAT_REMOTE_ID TEXT UNIQUE,
                 $COLUMN_CAT_NAME TEXT,
+                $COLUMN_CAT_IMG_URL TEXT,
                 categoria_padre TEXT,
                 posizionamento INTEGER,
                 visibile INTEGER DEFAULT 1
@@ -263,6 +265,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                 $COLUMN_CAT_ID INTEGER PRIMARY KEY AUTOINCREMENT,
                 $COLUMN_CAT_REMOTE_ID TEXT UNIQUE,
                 $COLUMN_CAT_NAME TEXT,
+                $COLUMN_CAT_IMG_URL TEXT,
                 categoria_padre TEXT,
                 posizionamento INTEGER,
                 visibile INTEGER DEFAULT 1
@@ -324,6 +327,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                 val values = ContentValues().apply {
                     put(COLUMN_CAT_REMOTE_ID, cat.id ?: "")
                     put(COLUMN_CAT_NAME, cat.name ?: "")
+                    put(COLUMN_CAT_IMG_URL, cat.imageUrl ?: "")
                     put("categoria_padre", if (parentId == "0" || parentId == "") null else parentId)
                     put("posizionamento", cat.position ?: 0)
                     put("visibile", if (cat.isVisible == true) 1 else 0)
@@ -398,6 +402,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                     list.add(com.example.kotlintut.data.network.NetworkCategory(
                         id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CAT_REMOTE_ID)) ?: "",
                         name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CAT_NAME)) ?: "",
+                        imageUrl = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CAT_IMG_URL)) ?: "",
                         parentCategory = null,
                         position = cursor.getInt(cursor.getColumnIndexOrThrow("posizionamento")),
                         isVisible = cursor.getInt(cursor.getColumnIndexOrThrow("visibile")) == 1
@@ -419,6 +424,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                     list.add(com.example.kotlintut.data.network.NetworkCategory(
                         id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CAT_REMOTE_ID)) ?: "",
                         name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CAT_NAME)) ?: "",
+                        imageUrl = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CAT_IMG_URL)) ?: "",
                         parentCategory = null,
                         position = cursor.getInt(cursor.getColumnIndexOrThrow("posizionamento")),
                         isVisible = cursor.getInt(cursor.getColumnIndexOrThrow("visibile")) == 1

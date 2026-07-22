@@ -17,6 +17,7 @@ data class OrderPayload(
     @SerializedName("priorita") val priorita: Int = 1,
     @SerializedName("numeroSegnaPosto") val numeroSegnaPosto: String,
     @SerializedName("stato") val stato: String = "DA PAGARE",
+    @SerializedName("datiPagamento") val datiPagamento: Any? = null,
     @SerializedName("bevande") val bevande: List<com.example.kotlintut.data.model.CartItem> = emptyList(),
     @SerializedName("food") val food: List<com.example.kotlintut.data.model.CartItem>
 )
