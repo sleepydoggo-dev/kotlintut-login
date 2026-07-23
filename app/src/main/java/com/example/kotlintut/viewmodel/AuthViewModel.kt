@@ -24,10 +24,19 @@ data class AuthUiState(
     val userId: String? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
-    val isLoginSuccessful: Boolean = false
+    val isLoginSuccessful: Boolean = false,
+    val isKioskMode: Boolean = AuthViewModel.IS_KIOSK_MODE // Inizializzato dal flag globale
 )
 
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
+    companion object {
+        /** 
+         * FLAG GLOBALE: Imposta a true per abilitare la modalità Chiosco (superuser)
+         * Se true, l'account loggato avrà i privilegi di chiosco (salto pagamenti, ecc.)
+         */
+        const val IS_KIOSK_MODE = false
+    }
+
     private val prefs = application.getSharedPreferences("TOTEM_PREFS", Context.MODE_PRIVATE)
     private val api = RetrofitClient.instance
 

@@ -77,12 +77,9 @@ fun AppNavigation(
     }
 
     LaunchedEffect(authState.loggedUser) {
-        authState.loggedUser?.let { 
-            cartViewModel.loadCart(it)
-            productViewModel.loadFavorites()
-        } ?: run {
-            productViewModel.loadFavorites() // Refresh for guest (clear)
-        }
+        val identifier = authState.loggedUser ?: "GUEST"
+        cartViewModel.loadCart(identifier)
+        productViewModel.loadFavorites()
     }
 
     // Handle Deep Linking from Notification
@@ -126,7 +123,7 @@ fun AppNavigation(
                     }
                 }
                 
-                if (authState.loggedUser != null) {
+                if (authState.loggedUser != null && !authState.isKioskMode) {
                     DrawerItem(appState.getString("favorites"), Icons.Default.Favorite, false) {
                         scope.launch { drawerState.close() }
                         navController.navigate(Screen.Favorites.route)
@@ -138,7 +135,7 @@ fun AppNavigation(
                     navController.navigate(Screen.Options.route)
                 }
 
-                if (authState.loggedUser != null) {
+                if (authState.loggedUser != null && !authState.isKioskMode) {
                     DrawerItem(appState.getString("order_history"), Icons.Default.History, false) {
                         scope.launch { drawerState.close() }
                         cartViewModel.loadOrders(authState.loggedUser!!)
@@ -331,8 +328,11 @@ fun AppNavigation(
                     onQuantityChange = { item, delta -> cartViewModel.updateQuantity(authState.loggedUser, item, delta) },
                     onRemoveItem = { item -> cartViewModel.removeItem(authState.loggedUser, item) },
                     onCheckoutClick = {
-                        // Navighiamo alla selezione del metodo di pagamento
-                        navController.navigate(Screen.PaymentMethodSelection.route)
+                        if (authState.isKioskMode) {
+                            navController.navigate(Screen.Segnaposto.route)
+                        } else {
+                            navController.navigate(Screen.PaymentMethodSelection.route)
+                        }
                     },
                     onBack = { navController.popBackStack() }
                 )
@@ -356,7 +356,7 @@ fun AppNavigation(
                         if (method.nome.contains("Carta", ignoreCase = true) || method.nome.contains("Stripe", ignoreCase = true)) {
                             navController.navigate(Screen.StripePayment.route)
                         } else {
-                            // Contanti o altro: invio ordine diretto con stato DA PAGARE
+                            // Contanti o altro (Utente Standard): Invio diretto SENZA passare per Segnaposto
                             cartViewModel.sendOrderToServer(
                                 segnaposto = "",
                                 stato = "DA PAGARE",
@@ -447,11 +447,23 @@ fun AppNavigation(
             
             // Nuova gestione Segnaposto (solo conferma)
             composable(Screen.Segnaposto.route) {
+                val isKioskMode = authState.isKioskMode
+                
                 com.example.kotlintut.ui.screens.SegnapostoScreen(
                     isLoading = cartState.isLoading,
+                    isKioskMode = isKioskMode,
                     confirmationNumber = cartState.orderConfirmationNumber,
                     error = cartState.orderError,
-                    onConfirm = { /* Inibito */ },
+                    onConfirm = { segnaposto ->
+                        if (isKioskMode) {
+                            cartViewModel.sendOrderToServer(
+                                segnaposto = segnaposto,
+                                stato = "DA PAGARE",
+                                pagamento = "Contanti",
+                                datiPagamento = null
+                            )
+                        }
+                    },
                     onBackToHome = {
                         cartViewModel.resetOrderConfirmation()
                         navController.navigate(Screen.Categories.route) {

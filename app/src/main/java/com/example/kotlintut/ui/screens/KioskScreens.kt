@@ -18,6 +18,7 @@ import com.example.kotlintut.ui.components.TotemTopBar
 @Composable
 fun SegnapostoScreen(
     isLoading: Boolean,
+    isKioskMode: Boolean = false, // Nuovo parametro per distinguere l'utente
     confirmationNumber: String?,
     error: String?,
     onConfirm: (String) -> Unit,
@@ -31,7 +32,7 @@ fun SegnapostoScreen(
             TotemTopBar(
                 title = if (!isConfirmed) "Conferma Ordine" else "Ordine Completato",
                 showMenu = false,
-                showBack = !isConfirmed,
+                showBack = !isConfirmed && isKioskMode, // Solo superuser può tornare indietro qui
                 onBackClick = onBackToHome
             )
         }
@@ -45,66 +46,66 @@ fun SegnapostoScreen(
             verticalArrangement = Arrangement.Center
         ) {
             if (!isConfirmed) {
-                /* Fase 1: Inserimento Segnaposto (Commentata)
-                Text(
-                    "Inserisci il numero del tuo tavolo o segnaposto",
-                    fontSize = 20.sp,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                OutlinedTextField(
-                    value = segnaposto,
-                    onValueChange = { if (it.length <= 4) segnaposto = it },
-                    label = { Text("Numero Segnaposto") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    enabled = !isLoading
-                )
-
-                if (error != null) {
+                if (isKioskMode) {
+                    // Fase 1: Inserimento Segnaposto (Solo per Superuser)
                     Text(
-                        text = error,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(32.dp))
-                
-                if (isLoading) {
-                    CircularProgressIndicator()
-                } else {
-                    Button(
-                        onClick = {
-                            if (segnaposto.isNotBlank()) {
-                                onConfirm(segnaposto)
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth().height(60.dp),
-                        enabled = segnaposto.isNotBlank()
-                    ) {
-                        Text("CONFERMA ORDINE", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-                */
-                
-                // Visualizzazione durante il caricamento diretto
-                if (isLoading) {
-                    CircularProgressIndicator()
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Invio ordine in corso...")
-                } else if (error != null) {
-                    Text(
-                        text = "Errore durante l'invio: $error",
-                        color = MaterialTheme.colorScheme.error,
+                        "Inserisci il numero del tuo tavolo o segnaposto",
+                        fontSize = 20.sp,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
+                    
                     Spacer(modifier = Modifier.height(24.dp))
-                    Button(onClick = onBackToHome) {
-                        Text("TORNA AL CARRELLO")
+                    
+                    OutlinedTextField(
+                        value = segnaposto,
+                        onValueChange = { if (it.length <= 4) segnaposto = it },
+                        label = { Text("Numero Segnaposto") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        enabled = !isLoading
+                    )
+
+                    if (error != null) {
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(32.dp))
+                    
+                    if (isLoading) {
+                        CircularProgressIndicator()
+                    } else {
+                        Button(
+                            onClick = {
+                                if (segnaposto.isNotBlank()) {
+                                    onConfirm(segnaposto)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().height(60.dp),
+                            enabled = segnaposto.isNotBlank()
+                        ) {
+                            Text("CONFERMA ORDINE", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                } else {
+                    // Per Utente Standard: Mostra solo caricamento perché l'invio è già partito
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Finalizzazione ordine in corso...")
+                    
+                    if (error != null) {
+                        Text(
+                            text = "Errore: $error",
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 16.dp)
+                        )
+                        Button(onClick = onBackToHome, modifier = Modifier.padding(top = 8.dp)) {
+                            Text("Torna alla Home")
+                        }
                     }
                 }
             } else {

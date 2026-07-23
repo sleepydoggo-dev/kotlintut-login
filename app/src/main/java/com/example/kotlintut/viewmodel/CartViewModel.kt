@@ -116,10 +116,9 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
 
         _uiState.update { it.copy(items = currentItems) }
         
-        username?.let {
-            viewModelScope.launch {
-                dbHelper.saveCart(it, currentItems)
-            }
+        val dbUser = username ?: "GUEST"
+        viewModelScope.launch {
+            dbHelper.saveCart(dbUser, currentItems)
         }
     }
 
@@ -135,10 +134,9 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
                 currentItems.removeAt(index)
             }
             _uiState.update { it.copy(items = currentItems) }
-            username?.let {
-                viewModelScope.launch {
-                    dbHelper.saveCart(it, currentItems)
-                }
+            val dbUser = username ?: "GUEST"
+            viewModelScope.launch {
+                dbHelper.saveCart(dbUser, currentItems)
             }
         }
     }
@@ -147,10 +145,9 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
     fun removeItem(username: String?, item: CartItem) {
         val currentItems = _uiState.value.items.filter { it != item }
         _uiState.update { it.copy(items = currentItems) }
-        username?.let {
-            viewModelScope.launch {
-                dbHelper.saveCart(it, currentItems)
-            }
+        val dbUser = username ?: "GUEST"
+        viewModelScope.launch {
+            dbHelper.saveCart(dbUser, currentItems)
         }
     }
 
@@ -264,10 +261,9 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         _uiState.update { it.copy(items = currentItems) }
-        username?.let {
-            viewModelScope.launch {
-                dbHelper.saveCart(it, currentItems)
-            }
+        val dbUser = username ?: "GUEST"
+        viewModelScope.launch {
+            dbHelper.saveCart(dbUser, currentItems)
         }
     }
 
@@ -307,10 +303,9 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
     /** Svuota completamente il carrello corrente e rimuove i dati salvati nel database per l'utente. */
     fun clearCart(username: String?) {
         _uiState.update { it.copy(items = emptyList()) }
-        username?.let {
-            viewModelScope.launch {
-                dbHelper.saveCart(it, emptyList())
-            }
+        val dbUser = username ?: "GUEST"
+        viewModelScope.launch {
+            dbHelper.saveCart(dbUser, emptyList())
         }
     }
 
@@ -321,10 +316,12 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
         datiPagamento: Any? = null
     ) {
         val currentState = _uiState.value
-        val userId = prefs.getString("USER_ID", null)
+        // Se siamo in modalità Chiosco, inviamo l'ID utente come null per non salvare l'ordine sull'account cliente
+        val userId = if (AuthViewModel.IS_KIOSK_MODE) null else prefs.getString("USER_ID", null)
         val authToken = prefs.getString("AUTH_TOKEN", null)
+        val loggedUsername = prefs.getString("LOGGED_USERNAME", "GUEST") ?: "GUEST"
 
-        android.util.Log.d("TOTEM_API", "Invio ordine per userId: $userId (Auth: ${authToken != null})")
+        android.util.Log.d("TOTEM_API", "Invio ordine (Kiosk: ${AuthViewModel.IS_KIOSK_MODE}) per userId: $userId, username: $loggedUsername")
 
         _uiState.update { it.copy(isLoading = true, orderError = null) }
 
@@ -415,9 +412,12 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
                     val orderNum = (1..999).random().toString()
                     android.util.Log.d("TOTEM_API", "Ordine inviato con successo! Numero: #$orderNum")
                     
-                    // Salviamo l'ordine nel DB locale con il NUMERO RANDOM GENERATO
-                    dbHelper.saveOrder(userId ?: "GUEST", currentState.total, currentState.items, orderNum)
-                    dbHelper.saveCart(userId ?: "GUEST", emptyList())
+                    // Salviamo l'ordine nel DB locale solo se NON siamo in modalità Chiosco
+                    if (!AuthViewModel.IS_KIOSK_MODE) {
+                        dbHelper.saveOrder(loggedUsername, currentState.total, currentState.items, orderNum)
+                    }
+
+                    dbHelper.saveCart(loggedUsername, emptyList())
 
                     _uiState.update { 
                         it.copy(
