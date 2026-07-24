@@ -194,3 +194,5 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(error = null) }
     }
 }
+
+//
